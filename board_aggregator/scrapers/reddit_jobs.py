@@ -20,7 +20,7 @@ TIER_2_SUBS = [
     "WorkOnline", "webdev", "datascience", "freelance", "remotework",
     "digitalnomad", "Upwork", "freelanceWriters", "copywriting",
     "graphic_design", "learnprogramming", "VirtualAssistants",
-    "socialmedia", "marketing", "CustomerSuccess",
+    "socialmedia", "marketing", "CustomerSuccess", "startups",
 ]
 ALL_SUBS = TIER_1_SUBS + TIER_2_SUBS
 
@@ -36,7 +36,7 @@ MAX_PAGES = 3
 class RedditJobsScraper(BaseScraper):
     name = "reddit"
 
-    def scrape(self, queries: list[str], is_remote: bool = True) -> list[JobPosting]:
+    def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         raw_posts = self._fetch_listings()
         jobs: list[JobPosting] = []
         for post in raw_posts:

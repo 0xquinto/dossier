@@ -18,7 +18,7 @@ RETRY_BACKOFF = [2, 5, 10]  # seconds between retries
 class HNHiringScraper(BaseScraper):
     name = "hn_hiring"
 
-    def scrape(self, queries: list[str], is_remote: bool = True) -> list[JobPosting]:
+    def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         thread_id = self._find_latest_thread()
         if not thread_id:
             print("[hn_hiring] No 'Who is hiring?' thread found")

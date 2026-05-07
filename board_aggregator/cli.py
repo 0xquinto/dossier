@@ -40,6 +40,12 @@ DEFAULT_OUTPUT = Path("research/phase-1-scrape")
     help="Only include remote jobs. Default: remote-only.",
 )
 @click.option(
+    "--hours-old",
+    type=int,
+    default=168,
+    help="Drop postings older than N hours (24 = posted today, 168 = last 7 days). Default: 168.",
+)
+@click.option(
     "-p", "--portals",
     type=click.Path(exists=True),
     default=None,
@@ -50,19 +56,22 @@ DEFAULT_OUTPUT = Path("research/phase-1-scrape")
     is_flag=True,
     help="List all available scrapers and exit.",
 )
-def main(query, output_dir, scraper, remote_only, portals, list_scrapers):
+def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers):
     """dossier Scraper -- Multi-board job scraper for the dossier pipeline."""
     # Import here to trigger registration via module imports
     import board_aggregator.scrapers.jobspy_boards  # noqa: F401
     import board_aggregator.scrapers.himalayas  # noqa: F401
     import board_aggregator.scrapers.weworkremotely  # noqa: F401
     import board_aggregator.scrapers.hn_hiring  # noqa: F401
+    import board_aggregator.scrapers.hn_freelancer  # noqa: F401
     import board_aggregator.scrapers.cryptojobslist  # noqa: F401
     import board_aggregator.scrapers.crypto_jobs  # noqa: F401
     import board_aggregator.scrapers.web3career  # noqa: F401
     import board_aggregator.scrapers.cryptocurrencyjobs  # noqa: F401
     import board_aggregator.scrapers.remoteok  # noqa: F401
     import board_aggregator.scrapers.reddit_jobs  # noqa: F401
+    import board_aggregator.scrapers.indiehackers  # noqa: F401
+    import board_aggregator.scrapers.nocodejobs  # noqa: F401
 
     from board_aggregator.scrapers import SCRAPER_REGISTRY
 
@@ -78,6 +87,7 @@ def main(query, output_dir, scraper, remote_only, portals, list_scrapers):
     click.echo(f"Running {len(queries)} queries across {'all' if not scraper_filter else len(scraper_filter)} scrapers")
     click.echo(f"Output: {output_dir}")
     click.echo(f"Remote only: {remote_only}")
+    click.echo(f"Hours old: {hours_old}")
     click.echo("---")
 
     jobs = run_all(
@@ -86,6 +96,7 @@ def main(query, output_dir, scraper, remote_only, portals, list_scrapers):
         is_remote=remote_only,
         scrapers=scraper_filter,
         portals_path=portals,
+        hours_old=hours_old,
     )
 
     click.echo(f"\nDone! {len(jobs)} unique postings written to {output_dir}/")

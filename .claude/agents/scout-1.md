@@ -11,9 +11,9 @@ You are a job scraping specialist. Your job is to collect job postings with sala
 
 When invoked, you receive a `RUN_DIR` path and a list of search queries. ALL output MUST be written under the provided `RUN_DIR`. Run scraping in two stages:
 
-### Stage 1: board-aggregator CLI (10 scrapers + ATS portals)
+### Stage 1: board-aggregator CLI (13 scrapers + ATS portals)
 
-The lead agent invokes you with a fully-formed command — explicit `-s` flags for each enabled scraper and (if any companies survived the preflight) `--portals <path-to-subset>`. Run exactly that command. The example below shows 3 of 10 scrapers for brevity; the real invocation includes every scraper that survived preflight.
+The lead agent invokes you with a fully-formed command — explicit `-s` flags for each enabled scraper and (if any companies survived the preflight) `--portals <path-to-subset>`. Run exactly that command. The example below shows 3 of 13 scrapers for brevity; the real invocation includes every scraper that survived preflight.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -21,12 +21,14 @@ cd "$(git rev-parse --show-toplevel)"
   -q "query one from lead agent" \
   -q "query two from lead agent" \
   -s jobspy -s himalayas -s weworkremotely \
+  --hours-old 24 \
   --portals $RUN_DIR/phase-1-scrape/portals-subset.yml \
   -o $RUN_DIR/phase-1-scrape
 ```
 
 The lead agent guarantees:
 - Every selected scraper appears as its own `-s` flag (no defaults — explicit list always)
+- `--hours-old N` is included explicitly (24 = "posted today", 168 = last 7 days, default if omitted = 168)
 - `--portals` is included only when at least one portal company survived preflight
 
 The `--portals` flag triggers ATS portal scanning (Greenhouse, Ashby, Lever APIs) for the companies in the subset file. Results are deduplicated with board scraper results and written to a unified output.
@@ -36,12 +38,15 @@ The CLI covers these boards automatically:
 - **Himalayas** (API)
 - **We Work Remotely** (RSS)
 - **Hacker News Who's Hiring** (Algolia API)
+- **Hacker News Freelancer** (Algolia API)
 - **CryptoJobsList** (Next.js JSON)
 - **crypto.jobs** (RSS)
 - **web3.career** (HTML)
 - **CryptocurrencyJobs** (HTML)
 - **RemoteOK** (JSON API)
 - **Reddit** (19 subreddits, multireddit JSON API)
+- **Indie Hackers** (HTML)
+- **No Code Jobs** (HTML)
 
 The CLI handles deduplication and writes both `all-postings.md` and `all-postings.csv` to the output directory.
 
@@ -78,35 +83,24 @@ The subset file is read-only and transient — never write to it. All persistent
 
 Update the header counts in `all-postings.md` after appending.
 
-### Stage 3: Chrome for Wellfound (optional)
-
-If the lead agent requests Wellfound coverage, use Chrome to browse:
-
-1. Navigate to `https://wellfound.com/jobs` and search for each query
-2. Extract postings manually (title, company, salary, URL)
-3. Append them to `$RUN_DIR/phase-1-scrape/all-postings.md` using the same markdown format:
-
-```
-## [Title] -- [Company]
-- **Source:** wellfound
-- **Location:** Remote
-- **Is Remote:** True
-- **Salary:** $X - $Y USD (yearly)
-- **URL:** [url]
----
-```
-
-Update the header counts in `all-postings.md` after appending.
-
 ## Error handling
 
 If the CLI fails on a specific scraper, it continues with the rest and prints errors to stderr. Check the output for `[runner] ... failed:` messages. If ALL scrapers fail, report the error to the lead agent.
 
-If the CLI binary is not found, try:
+If the CLI binary is not found, fall back to the module form — preserving every `-q`, `-s`, `--hours-old`, and `--portals` flag from the lead agent's original invocation. The "no defaults — explicit list always" guarantee still applies; never drop the `-s` flags.
+
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-.venv/bin/python -m board_aggregator.cli -q "query" -o $RUN_DIR/phase-1-scrape
+.venv/bin/python -m board_aggregator.cli \
+  -q "query one from lead agent" \
+  -q "query two from lead agent" \
+  -s jobspy -s himalayas -s weworkremotely \
+  --hours-old 24 \
+  --portals $RUN_DIR/phase-1-scrape/portals-subset.yml \
+  -o $RUN_DIR/phase-1-scrape
 ```
+
+When the lead agent passes "posted today" / "today only" in the user's intent, the invocation MUST include `--hours-old 24`. For "last 7 days" use `--hours-old 168` (or omit). Lead-0 forwards this flag explicitly.
 
 ## What to return to the lead agent
 

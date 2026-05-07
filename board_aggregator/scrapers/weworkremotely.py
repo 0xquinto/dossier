@@ -9,6 +9,7 @@ FEED_URLS = [
     "https://weworkremotely.com/categories/remote-management-and-finance-jobs.rss",
     "https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss",
     "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss",
+    "https://weworkremotely.com/categories/remote-contract-jobs.rss",
 ]
 
 
@@ -16,7 +17,7 @@ FEED_URLS = [
 class WeWorkRemotelyScraper(BaseScraper):
     name = "weworkremotely"
 
-    def scrape(self, queries: list[str], is_remote: bool = True) -> list[JobPosting]:
+    def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen_urls: set[str] = set()
 

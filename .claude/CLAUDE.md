@@ -28,9 +28,9 @@ Non-descriptive names to prevent Claude from inferring default behaviors:
 
 ## board-aggregator CLI
 
-Scout-1 calls the `board-aggregator` CLI (installed in `.venv/`) which scrapes 11 boards:
+Scout-1 calls the `board-aggregator` CLI (installed in `.venv/`) which scrapes 13 boards:
 - python-jobspy: Indeed, LinkedIn
-- Custom scrapers: Himalayas, We Work Remotely, HN Who's Hiring, CryptoJobsList, crypto.jobs, web3.career, CryptocurrencyJobs, RemoteOK, Reddit
+- Custom scrapers: Himalayas, We Work Remotely, HN Who's Hiring, HN Freelancer, CryptoJobsList, crypto.jobs, web3.career, CryptocurrencyJobs, RemoteOK, Reddit, Indie Hackers, No Code Jobs
 
 Source code: `board_aggregator/` — registry-pattern scrapers with Pydantic models, dedup, CSV+MD output.
 
@@ -92,7 +92,7 @@ This constraint survives context compaction because it is in CLAUDE.md.
 4-phase Claude agent pipeline + Python scraping engine. Agents orchestrated by lead-0 (Opus), scrapers via `board_aggregator` Click CLI.
 
 **Stack**: Python 3.12+, Click, Pydantic, python-jobspy, requests, feedparser, BeautifulSoup, Exa MCP, Claude-in-Chrome MCP
-**Structure**: `.claude/agents/` (11 agent defs), `board_aggregator/` (10 scrapers, 11 boards), `tests/` (mocked HTTP), `scripts/` (tracker.py, generate-pdf.mjs, normalize-ats.mjs), `dashboard/` (Go TUI)
+**Structure**: `.claude/agents/` (12 agent defs), `board_aggregator/` (13 scrapers, 13 boards), `tests/` (mocked HTTP), `scripts/` (tracker.py, generate-pdf.mjs, normalize-ats.mjs), `dashboard/` (Go TUI)
 
 For detailed architecture, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
 

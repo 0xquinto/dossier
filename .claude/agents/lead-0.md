@@ -209,12 +209,17 @@ cd "$(git rev-parse --show-toplevel)"
 .venv/bin/board-aggregator \
   -q "<query 1>" -q "<query 2>" ... \
   -s <effective_scraper_1> -s <effective_scraper_2> ... \
+  --hours-old <N> \
   [--portals $RUN_DIR/phase-1-scrape/portals-subset.yml] \
   -o $RUN_DIR/phase-1-scrape
 ```
 
 Rules:
 - Always emit `-s` flags explicitly — one per scraper in `effective_scrapers`. Never rely on the CLI default. This makes the run reproducible from `meta.json`.
+- Always emit `--hours-old N` explicitly — no defaults. Map the user's intent before building the command:
+  - "posted today" / "today only" / "last 24 hours" → `--hours-old 24`
+  - "last 3 days" / "this week" → `--hours-old 72` or `--hours-old 168`
+  - User said nothing about freshness → ask once, or default to `--hours-old 168` (last 7 days) and record the choice in `meta.json`.
 - Include `--portals $RUN_DIR/phase-1-scrape/portals-subset.yml` only if you wrote the subset file in Preflight Step 6. Omit otherwise.
 - Pass the queries the user confirmed earlier.
 

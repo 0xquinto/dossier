@@ -17,7 +17,11 @@ class HimalayasScraper(BaseScraper):
     name = "himalayas"
 
     def scrape(
-        self, queries: list[str], is_remote: bool = True, max_pages: int = 5
+        self,
+        queries: list[str],
+        is_remote: bool = True,
+        max_pages: int = 5,
+        hours_old: int = 168,
     ) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         offset = 0

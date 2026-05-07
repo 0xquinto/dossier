@@ -22,7 +22,7 @@ CATEGORY_PAGES = [
 class CryptoJobsListScraper(BaseScraper):
     name = "cryptojobslist"
 
-    def scrape(self, queries: list[str], is_remote: bool = True) -> list[JobPosting]:
+    def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen_ids: set[str] = set()
 

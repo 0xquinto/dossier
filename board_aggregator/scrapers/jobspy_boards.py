@@ -17,6 +17,7 @@ class JobSpyScraper(BaseScraper):
         is_remote: bool = True,
         results_per_query: int = 50,
         hours_old: int = 168,
+        country_indeed: str = "worldwide",
     ) -> list[JobPosting]:
         jobs: list[JobPosting] = []
 
@@ -29,7 +30,7 @@ class JobSpyScraper(BaseScraper):
                     location="Remote",
                     results_wanted=results_per_query,
                     hours_old=hours_old,
-                    country_indeed="USA",
+                    country_indeed=country_indeed,
                     is_remote=is_remote,
                 )
 

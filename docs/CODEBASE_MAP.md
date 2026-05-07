@@ -25,7 +25,7 @@ graph TB
         CLI[cli.py]
         Runner[runner.py]
         Registry[scrapers/__init__.py]
-        Scrapers["10 scrapers<br/>(11 boards)"]
+        Scrapers["13 scrapers<br/>(13 boards)"]
         Portal[portal_scanner.py]
         Output[output.py]
         Models[models.py]
@@ -38,7 +38,7 @@ graph TB
         HTML["HTML Scraping<br/>web3career, cryptocurrencyjobs"]
         NextJS["Next.js JSON<br/>CryptoJobsList"]
         Algolia["Algolia API<br/>HN Who's Hiring"]
-        Reddit["Reddit JSON API<br/>19 subreddits"]
+        Reddit["Reddit JSON API<br/>20 subreddits"]
         ATS["ATS APIs<br/>Greenhouse / Ashby / Lever"]
         Exa[Exa MCP]
         Chrome[Claude-in-Chrome]
@@ -134,12 +134,15 @@ graph TB
 │       ├── himalayas.py           # Himalayas REST API (paginated)
 │       ├── weworkremotely.py      # We Work Remotely (4 RSS feeds)
 │       ├── hn_hiring.py           # HN Who's Hiring via Algolia API
+│       ├── hn_freelancer.py       # HN Freelancer? Seeking freelancer? thread (subclasses HNHiringScraper)
 │       ├── cryptojobslist.py      # CryptoJobsList via __NEXT_DATA__ JSON
 │       ├── crypto_jobs.py         # crypto.jobs RSS + BS4 description parsing
 │       ├── web3career.py          # web3.career HTML table parsing
 │       ├── cryptocurrencyjobs.py  # cryptocurrencyjobs.co HTML card parsing
 │       ├── remoteok.py            # RemoteOK JSON API
-│       └── reddit_jobs.py         # Reddit multireddit JSON API (19 subreddits, 2 tiers)
+│       ├── reddit_jobs.py         # Reddit multireddit JSON API (20 subreddits, 2 tiers)
+│       ├── indiehackers.py        # Indie Hackers public Algolia jobAds index (closedTimestamp filter)
+│       └── nocodejobs.py          # No Code Jobs static Astro HTML (.job-item data-* attrs)
 ├── templates/
 │   ├── skills-inventory.example.md  # Starter template copied to skills-inventory.md by wizard
 │   ├── resume.example.md            # Starter template copied to resume.md by wizard
@@ -162,6 +165,8 @@ graph TB
 │   ├── test_cryptojobslist.py     # CryptoJobsList scraper
 │   ├── test_portal_scanner.py     # ATS portal scanner (lifecycle, Greenhouse, Ashby, Lever)
 │   ├── test_reddit_jobs.py        # Reddit scraper (pagination, retry, company extraction)
+│   ├── test_indiehackers.py       # Indie Hackers Algolia scraper
+│   ├── test_nocodejobs.py         # No Code Jobs HTML scraper
 │   ├── test_tracker.py            # Application tracker CLI (17 tests)
 │   └── test_wizard.py             # setup_wizard.py helpers
 ├── docs/
@@ -549,3 +554,13 @@ Since 2026-04-08:
 - **`filler-10`** added — hybrid ATS submitter (Lever/Ashby API + Greenhouse/Workday browser automation, human-in-the-loop)
 - **`pdf-9`** switched from delegating to user → self-rendering PDF via `node scripts/generate-pdf.mjs`; added section-boundary rules
 - **`lead-0` readiness check** now validates Node.js ≥20 + Playwright (required for `pdf-9`)
+
+## Recent Changes (auto-synced 2026-04-30)
+
+**37 files changed** since last sync.
+
+- **config**: 1 files (pyproject.toml)
+- **context_files**: 2 files (CLAUDE.md, CODEBASE_MAP.md)
+- **docs**: 26 files (CLAUDE.md, composer-4.md, lead-0.md, pdf-9.md, primer-8.md...)
+- **source**: 1 files (cli.py)
+- **tests**: 13 files (README.md, expected-patterns.md, ranked-opportunities.md, company-context.md, contacts.md...)

@@ -14,7 +14,7 @@ FEED_URL = "https://crypto.jobs/feed/rss"
 class CryptoJobsScraper(BaseScraper):
     name = "crypto_jobs"
 
-    def scrape(self, queries: list[str], is_remote: bool = True) -> list[JobPosting]:
+    def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         try:
             feed = feedparser.parse(FEED_URL)

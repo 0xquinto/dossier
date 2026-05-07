@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from board_aggregator.models import JobPosting
@@ -37,10 +39,67 @@ def _richness(job: JobPosting) -> int:
     return score
 
 
+_DATE_FORMATS = (
+    "%Y-%m-%d",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y/%m/%d",
+    "%d %b %Y",
+    "%d %B %Y",
+)
+
+
+def _parse_posting_date(s: str | None) -> datetime | None:
+    """Best-effort parse of varied date strings. Returns tz-aware UTC datetime or None."""
+    if not s:
+        return None
+    s = s.strip()
+    if not s or s.lower() in {"none", "nan", "nat", ""}:
+        return None
+
+    iso_candidate = s.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(iso_candidate)
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        pass
+
+    for fmt in _DATE_FORMATS:
+        try:
+            dt = datetime.strptime(s, fmt)
+            return dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+
+    try:
+        dt = parsedate_to_datetime(s)
+        if dt is not None:
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        pass
+
+    return None
+
+
+def _filter_by_age(jobs: list[JobPosting], hours_old: int) -> list[JobPosting]:
+    """Drop postings whose parsed date is older than the cutoff. Keep undated postings."""
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_old)
+    kept: list[JobPosting] = []
+    for job in jobs:
+        dt = _parse_posting_date(job.date_posted)
+        if dt is None:
+            kept.append(job)
+            continue
+        if dt >= cutoff:
+            kept.append(job)
+    return kept
+
+
 def collect_from_boards(
     queries: list[str],
     is_remote: bool = True,
     scrapers: list[str] | None = None,
+    hours_old: int = 168,
 ) -> list[JobPosting]:
     """Run all registered scrapers, return raw (undeduped) results."""
     all_jobs: list[JobPosting] = []
@@ -52,7 +111,7 @@ def collect_from_boards(
 
         print(f"[runner] Scraping {scraper.name}...")
         try:
-            jobs = scraper.scrape(queries, is_remote=is_remote)
+            jobs = scraper.scrape(queries, is_remote=is_remote, hours_old=hours_old)
             print(f"[runner] {scraper.name}: {len(jobs)} results")
             all_jobs.extend(jobs)
         except Exception as e:
@@ -67,12 +126,13 @@ def run_all(
     is_remote: bool = True,
     scrapers: list[str] | None = None,
     portals_path: str | None = None,
+    hours_old: int = 168,
 ) -> list[JobPosting]:
     """Run board scrapers + portal scanner, deduplicate, and write output."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Stage 1: board scrapers
-    board_jobs = collect_from_boards(queries, is_remote, scrapers)
+    board_jobs = collect_from_boards(queries, is_remote, scrapers, hours_old=hours_old)
     print(f"[runner] Board scrapers: {len(board_jobs)} results")
 
     # Stage 2: portal scanner (ATS APIs)
@@ -95,8 +155,13 @@ def run_all(
             portal_jobs = filter_by_title(portal_jobs, positive, negative)
             print(f"[runner] Title filter: {before} -> {len(portal_jobs)}")
 
-    # Combine and deduplicate
     all_jobs = board_jobs + portal_jobs
+    print(f"[runner] Total before date filter: {len(all_jobs)}")
+
+    before_date = len(all_jobs)
+    all_jobs = _filter_by_age(all_jobs, hours_old)
+    print(f"[runner] Date filter: {before_date} -> {len(all_jobs)}")
+
     print(f"[runner] Total before dedup: {len(all_jobs)}")
     unique_jobs = deduplicate(all_jobs)
     print(f"[runner] Total after dedup: {len(unique_jobs)}")

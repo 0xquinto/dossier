@@ -23,7 +23,7 @@ SALARY_PATTERN = re.compile(r"[\$\u20ac\u00a3][\d,.]+[Kk]?\s*[\u2013\-]\s*[\$\u2
 class CryptocurrencyJobsScraper(BaseScraper):
     name = "cryptocurrencyjobs"
 
-    def scrape(self, queries: list[str], is_remote: bool = True) -> list[JobPosting]:
+    def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen_urls: set[str] = set()
 
