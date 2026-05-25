@@ -21,6 +21,13 @@ class JobPosting(BaseModel):
     def _strip(cls, v: str) -> str:
         return v.strip() if isinstance(v, str) else v
 
+    @field_validator("is_remote", mode="before")
+    @classmethod
+    def _coerce_remote(cls, v) -> bool:
+        if v is None:
+            return True
+        return bool(v)
+
     @property
     def dedup_key(self) -> tuple[str, str]:
         return (self.title.lower(), self.company.lower())

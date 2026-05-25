@@ -50,7 +50,7 @@ def fetch_greenhouse(slug: str) -> list[JobPosting]:
     jobs: list[JobPosting] = []
     for item in data.get("jobs", []):
         is_remote = False
-        for meta in item.get("metadata", []):
+        for meta in (item.get("metadata") or []):
             if meta.get("name") == "Location Type" and meta.get("value"):
                 is_remote = "remote" in str(meta["value"]).lower()
 
@@ -60,7 +60,7 @@ def fetch_greenhouse(slug: str) -> list[JobPosting]:
                 company=item.get("company_name", slug),
                 source="greenhouse",
                 job_url=item.get("absolute_url", ""),
-                location=item.get("location", {}).get("name"),
+                location=(item.get("location") or {}).get("name"),
                 is_remote=is_remote,
                 salary_min=None,
                 salary_max=None,
@@ -145,7 +145,7 @@ def fetch_ashby(slug: str, company_name: str | None = None) -> list[JobPosting]:
                 source="ashby",
                 job_url=item.get("jobUrl", ""),
                 location=item.get("location"),
-                is_remote=item.get("isRemote", False),
+                is_remote=item.get("isRemote"),
                 description=item.get("descriptionPlain"),
                 **salary,
             )
@@ -210,8 +210,8 @@ def fetch_lever(slug: str, company_name: str | None = None) -> list[JobPosting]:
     company = company_name or slug
     jobs: list[JobPosting] = []
     for item in data:
-        categories = item.get("categories", {})
-        workplace = item.get("workplaceType", "")
+        categories = item.get("categories") or {}
+        workplace = item.get("workplaceType") or ""
         salary = _extract_lever_salary(item.get("salaryRange"))
 
         jobs.append(
