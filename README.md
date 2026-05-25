@@ -4,6 +4,8 @@ Agent pipeline that scrapes 13 job boards plus your ICP companies' ATS portals (
 
 ## Quick Start
 
+> **Requires the [Claude Code](https://code.claude.com) terminal CLI.** The pipeline is driven by the `lead-0` agent, which can only be launched as the primary agent from the CLI (`claude --agent lead-0`). It cannot be started from the Claude Desktop app or claude.ai/code — see [Claude Desktop & claude.ai](#claude-desktop--claudeai) below.
+
 ```bash
 git clone https://github.com/0xQuinto/dossier.git
 cd dossier
@@ -18,6 +20,21 @@ That's it. On first run, `lead-0` detects missing setup and walks you through ev
 - Building your skills inventory and resume from your existing materials (CV, portfolio, GitHub, LinkedIn)
 
 **Manual alternative:** `python setup_wizard.py` handles venv + deps + Exa MCP without the profile builder.
+
+## Claude Desktop & claude.ai
+
+**This pipeline runs only in the Claude Code terminal CLI.** Both the Desktop app and claude.ai/code load this repo's `.claude/` config (CLAUDE.md, settings, MCP servers, skills, and the agent files themselves), but **neither lets you launch a custom agent as the main thread** — there's no `--agent` equivalent or agent picker. Because `lead-0` orchestrates by spawning subagents (`scout-1`, `ranker-7`, …) and a custom agent can only be made the main thread via the CLI, the orchestrator can't be started on those surfaces. The same applies to the on-demand agents (`letter-5`, `pdf-9`, `applier-2`, `filler-10`) — they're custom agents too.
+
+| Surface | Reads `.claude/` config | Launch `lead-0` / on-demand agents | Run the pipeline |
+|---|:---:|:---:|:---:|
+| **Terminal CLI** | ✅ | ✅ `claude --agent <name>` | ✅ |
+| **Claude Desktop** (local) | ✅ | ❌ no agent launcher | ❌ — use the CLI |
+| **claude.ai/code** (cloud) | ✅ (cloned in) | ❌ no agent launcher | ❌ — use the CLI |
+
+- **Claude Desktop** is a full local Claude Code engine (runs bash, edits files, shares config with the CLI), but it has no UI to make `lead-0` the primary agent — run the pipeline from a terminal instead. The raw scraper (`board-aggregator`) still works in any shell.
+- **claude.ai/code** cloud sessions can be started from the CLI with `claude --remote "<task>"` (push your commits first — it clones from GitHub), but `--remote` cannot be combined with `--agent`, so it can't drive `lead-0`. Cloud sessions are fine for other repo tasks, just not this pipeline.
+
+Docs: [sub-agents (CLI-only)](https://code.claude.com/docs/en/sub-agents) · [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web) · [Desktop](https://code.claude.com/docs/en/desktop)
 
 ## How the pipeline works
 

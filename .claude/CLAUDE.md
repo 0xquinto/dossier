@@ -10,6 +10,8 @@ A job research pipeline that scrapes job postings, scores them against the user'
 claude --agent lead-0
 ```
 
+Requires the **Claude Code terminal CLI** — `lead-0` and the on-demand agents can only be launched as the primary agent via `claude --agent`, which only the CLI supports. The Claude Desktop app and claude.ai/code load the repo's `.claude/` config but offer no way to make a custom agent the main thread, so the pipeline cannot be started there (and `claude --remote` cloud sessions can't be combined with `--agent`). See the README "Claude Desktop & claude.ai" section.
+
 ## Agent names
 
 Non-descriptive names to prevent Claude from inferring default behaviors:
