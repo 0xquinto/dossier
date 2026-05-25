@@ -34,6 +34,19 @@ For each form question:
 7. **Cover letter / "Anything else?"**: Condense the video script into 150-word written form
 8. **Yes/No compliance questions** (authorized to work, sponsorship, etc.): Output as-is, flag any the user should verify
 
+## Humanize pass (mandatory before writing form-answers.md)
+
+Before writing `form-answers.md`, run every long-form answer (anything over ~150 chars — "Why this company?", "Why this role?", project descriptions, cover-letter fields, "Anything else?") through the humanizer skill to strip AI tells (em-dash overuse, rule-of-three, vague attributions, inflated symbolism, filler phrases).
+
+Read `~/.claude/skills/humanizer/SKILL.md` directly via the Read tool. Apply each pattern.
+
+**Skip humanizer for:**
+- Short text fields (name, location, links) — straight pulls from the resume.
+- Yes/No compliance questions — output exactly as required by the form.
+- Salary fields — keep the negotiation-playbook scenario language verbatim.
+
+For long-form answers, prefer fixes that shorten the answer (most ATS fields have char caps). Note any skipped pattern in a per-question `**Humanizer notes:**` line below the `**Source:**` line.
+
 ## Output format
 
 Write to `research/latest/phase-4-pitch/[company-slug]/form-answers.md`:
@@ -57,6 +70,7 @@ Generated: [date]
 > [Answer]
 
 **Source:** [artifact]
+**Humanizer notes:** [skipped patterns w/ reason — or "all applied" / "n/a (short field)"]
 
 ...
 

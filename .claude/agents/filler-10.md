@@ -103,6 +103,21 @@ Read all available inputs based on mode (pipeline-backed or cold). For cold mode
 7. **Yes/No compliance:** fill obvious ones, flag uncertain ones for user
 8. **Unknown questions:** leave blank and flag
 
+### Step 4.5: Humanize pass (cold mode only — mandatory)
+
+In **pipeline-backed mode**, skip this step: `form-answers.md` (from applier-2) and `cover-letter.md` (from letter-5) are already humanized upstream.
+
+In **cold mode**, before filling any field with a generated long-form answer (anything over ~150 chars — "Why this company?", "Why this role?", project descriptions, cover-letter text fields, "Anything else?"), run each draft through the humanizer skill to strip AI tells (em-dash overuse, rule-of-three, vague attributions, inflated symbolism, filler phrases).
+
+Read `~/.claude/skills/humanizer/SKILL.md` directly via the Read tool. Apply each pattern.
+
+**Skip humanizer for:**
+- Short text fields (name, email, phone, location, links) — direct pulls from resume.
+- Yes/No compliance questions — output exactly as the form requires.
+- Salary fields — keep the negotiation-playbook scenario language verbatim.
+
+Prefer fixes that shorten the answer (ATS fields usually have char caps). Note any skipped pattern in a per-field row in the submission-log under a `Humanizer notes` column or list.
+
 ---
 
 ## Tier 1: API submission flow
@@ -347,12 +362,12 @@ Write to `research/latest/phase-4-pitch/[company-slug]/submission-log.md`:
 - **Date:** [date]
 
 ## Fields Filled
-| Field | Value | Source |
-|-------|-------|--------|
-| Name | ... | resume.md |
-| Email | ... | resume.md |
-| Cover Letter | [N words] | letter-5 / generated |
-| ... | ... | ... |
+| Field | Value | Source | Humanizer notes |
+|-------|-------|--------|-----------------|
+| Name | ... | resume.md | n/a (short field) |
+| Email | ... | resume.md | n/a (short field) |
+| Cover Letter | [N words] | letter-5 / generated | all applied / [skipped patterns w/ reason] |
+| ... | ... | ... | ... |
 
 ## Files Uploaded
 - Resume: [filename]

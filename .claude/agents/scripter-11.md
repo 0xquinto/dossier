@@ -89,6 +89,14 @@ Write to `$RUN_DIR/phase-4-pitch/[company-slug]/video-script-critiques.md`:
 
 Rewrite v1 incorporating critiques that improve the draft without damaging voice. Any critique that would make v2 sound less like the voice sample goes into an "Intentionally Ignored" section with a one-line rationale. Stay in the 150-220 word band.
 
+### Step 6: Humanize pass
+
+Before writing v2 to disk, run it through the humanizer skill to strip AI tells (em-dash overuse, rule-of-three, vague attributions, inflated symbolism, filler phrases).
+
+Read `~/.claude/skills/humanizer/SKILL.md` directly via the Read tool. Apply each pattern to v2.
+
+**Voice-anchor wins ties:** if a humanizer pattern would push v2 away from `voice-sample.md`'s rhythm/vocabulary, skip it. The voice floor stays non-negotiable. Log skipped patterns under a new "Humanizer notes" section below "Intentionally Ignored Critiques".
+
 Write to `$RUN_DIR/phase-4-pitch/[company-slug]/video-script.md`:
 
 ```markdown
@@ -109,9 +117,12 @@ Write to `$RUN_DIR/phase-4-pitch/[company-slug]/video-script.md`:
 
 ## Intentionally Ignored Critiques
 - {Advisor} "{fix description}": {one-line reason voice wins here}
+
+## Humanizer notes
+- {pattern name}: {one-line reason voice or proof clarity wins here}
 ```
 
-If no critiques were ignored, write `None — all critiques applied.` under the Intentionally Ignored heading.
+If no critiques were ignored, write `None — all critiques applied.` under the Intentionally Ignored heading. If no humanizer patterns were skipped, write `None — all patterns applied.` under the Humanizer notes heading.
 
 ## What to return to the lead agent
 

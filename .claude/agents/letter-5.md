@@ -56,7 +56,15 @@ From `skills-inventory.md`, pick the projects that best map to JD requirements. 
 - Clear call to action
 - Professional sign-off
 
-### Step 5: Write markdown output
+### Step 5: Humanize pass
+
+Before writing any output, run the draft through the humanizer skill to strip AI tells (em-dash overuse, rule-of-three, vague attributions, inflated symbolism, filler phrases, etc.).
+
+Read `~/.claude/skills/humanizer/SKILL.md` directly via the Read tool. Apply each pattern in the skill to the draft. If a pattern would damage the user's voice or break a JD-keyword match, skip it and note that under "Humanizer notes" in the metadata.
+
+The humanizer pass is mandatory for the body and close paragraphs; the opening hook may keep one stylistic choice if the skill would flatten it.
+
+### Step 6: Write markdown output
 
 Write to `$RUN_DIR/phase-4-pitch/[company-slug]/cover-letter.md`:
 
@@ -77,9 +85,10 @@ Keywords injected: [count]
 - Word count: [N]
 - JD keywords used: [list]
 - Proof points: [project names]
+- Humanizer notes: [any patterns intentionally skipped, with one-line reason — or "all applied"]
 ```
 
-### Step 6: Build HTML output
+### Step 7: Build HTML output
 
 Read `templates/cover-letter-template.html`. Substitute all `{{PLACEHOLDER}}` tokens:
 - `{{LANG}}` — "en"
@@ -95,7 +104,7 @@ Read `templates/cover-letter-template.html`. Substitute all `{{PLACEHOLDER}}` to
 
 Write to `$RUN_DIR/phase-4-pitch/[company-slug]/cover-letter.html`
 
-### Step 7: Instruct user to render PDF
+### Step 8: Instruct user to render PDF
 
 ```
 node scripts/generate-pdf.mjs $RUN_DIR/phase-4-pitch/[company-slug]/cover-letter.html $RUN_DIR/phase-4-pitch/[company-slug]/cover-letter.pdf

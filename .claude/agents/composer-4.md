@@ -29,6 +29,14 @@ You receive: a `RUN_DIR` path, a company name, role title, and fit score. ALL ou
 - Show you understand THEIR problem, not just the user's skills
 - Keep it short — respect their time
 
+## Humanize pass (mandatory before writing DM drafts)
+
+Before writing `dm-drafts.md`, run every drafted message (connection note, LinkedIn DM, X DM, InMail, follow-up) through the humanizer skill to strip AI tells (em-dash overuse, rule-of-three, vague attributions, inflated symbolism, filler phrases).
+
+Read `~/.claude/skills/humanizer/SKILL.md` directly via the Read tool. Apply each pattern across all 5 message variants.
+
+**Length matters:** in the 200/280-character variants, prefer humanizer fixes that remove words. Skip any pattern that would burst the character cap or drop the one proof point. Note skipped patterns in the "Humanizer notes" section appended to `dm-drafts.md`.
+
 ## Output: DM Drafts
 
 Write to `$RUN_DIR/phase-4-pitch/[company-slug]/dm-drafts.md`:
@@ -69,7 +77,12 @@ Would love to connect if you're open to it.
 ## Follow-up DM (5-day cadence, max 300 chars)
 [If no response after 5 days. Reference the original message briefly.
 Add one new proof point or company-relevant insight. Don't be pushy.]
+
+## Humanizer notes
+- {pattern name}: {one-line reason — char cap, voice match, or proof point preserved}
 ```
+
+If no humanizer patterns were skipped, write `None — all patterns applied.` under the Humanizer notes heading.
 
 ## Outreach rules
 - Connection request: NO pitch, just establish rapport
