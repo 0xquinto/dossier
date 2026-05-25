@@ -17,7 +17,7 @@ graph TB
         Scout[scout-1<br/>Phase 1: Scrape]
         Ranker[ranker-7<br/>Phase 2: Rank]
         Recon[recon-3<br/>Phase 3: Contacts]
-        Composer[composer-4<br/>Phase 4: Pitch]
+        Composer[composer-4<br/>Phase 4: Pitch<br/>(optional)]
         Disc[discoverer-6<br/>Pre-pipeline]
     end
 
@@ -60,7 +60,7 @@ graph TB
     Lead -->|foreground| Scout
     Lead -->|foreground| Ranker
     Lead -->|"background ×N companies"| Recon
-    Lead -->|"background ×N companies"| Composer
+    Lead -.->|"optional, per company"| Composer
     Disc -.->|populates| Portals
 
     Scout --> CLI
@@ -108,8 +108,8 @@ graph TB
 │       ├── scout-1.md             # Phase 1 scraper (Sonnet)
 │       ├── ranker-7.md            # Phase 2 scorer (Sonnet)
 │       ├── recon-3.md             # Phase 3 contact finder (Sonnet)
-│       ├── composer-4.md          # Phase 4 pitch generator (Opus)
-│       ├── scripter-11.md         # Phase 4 video script generator (Opus)
+│       ├── composer-4.md          # Phase 4 pitch generator (Opus, optional)
+│       ├── scripter-11.md         # Phase 4 video script generator (Opus, optional)
 │       ├── discoverer-6.md        # Company discovery via Exa (Sonnet)
 │       ├── primer-8.md            # Onboarding agent (Opus)
 │       ├── applier-2.md           # Application form answer generator (Sonnet)
@@ -311,8 +311,8 @@ graph TB
 | `scout-1` | Phase 1 — Scrape | Sonnet | Bash (CLI), Read, Write, WebFetch, Exa crawl, Chrome | Foreground |
 | `ranker-7` | Phase 2 — Rank | Sonnet | Read, Write, Grep, Glob | Foreground |
 | `recon-3` | Phase 3 — Contacts | Sonnet | Read, Write, WebSearch, Exa advanced search, Chrome | Background (one per company) |
-| `scripter-11` | Phase 4 — Video scripts | Opus | Read, Write, Glob | Foreground (blocking, sequential per company) |
-| `composer-4` | Phase 4 — Pitch materials | Opus | Read, Write, Glob | Foreground (blocking, sequential per company) |
+| `scripter-11` | Phase 4 (optional) — Video scripts | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
+| `composer-4` | Phase 4 (optional) — Pitch materials | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
 | `discoverer-6` | Company discovery | Sonnet | Read, Write, Exa company research, WebFetch | Spawnable by lead-0; run before pipeline to expand portals.yml |
 | `primer-8` | Onboarding | Opus | Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch | Spawned by lead-0 on readiness check failure |
 | `applier-2` | Application forms | Sonnet | Read, Write, Glob, Grep | On-demand, human-in-the-loop |
@@ -392,16 +392,16 @@ sequenceDiagram
         Recon-->>Lead: "Found contact at Company"
     end
 
-    Note over Lead: Phase 4 (background, parallel per company — lead waits for ALL)
-    par Per company
+    Lead->>User: Pipeline summary + offer optional Phase 4
+
+    Note over Lead: Phase 4 (OPTIONAL — only if user opts in)
+    opt User opts in
         Lead->>Composer: RUN_DIR + company + role + score
         Composer-->>Lead: "Materials ready for Company"
     end
-
-    Lead->>User: Pipeline summary
 ```
 
-**Phase 3 and 4 are sequential with respect to each other.** Phase 4 does not start until all Phase 3 agents complete. Within each phase, one subagent per company runs in parallel. A naive reading of "background" might suggest the phases overlap — they do not.
+**Phase 4 is optional and runs last.** It is skipped by default; lead-0 offers it to the user after the pipeline summary. When the user opts in, scripter-11 → composer-4 run foreground, sequentially per company. Phase 3 (contacts) is the only background phase — one subagent per company in parallel.
 
 ---
 
@@ -505,7 +505,7 @@ Copy functions are **idempotent** — skips if destination exists. Re-running th
 - **CLI default output path is non-versioned.** CLI defaults to `research/phase-1-scrape`; the pipeline always overrides with `-o $RUN_DIR/phase-1-scrape`.
 - **Reddit links point to threads, not company sites.** `job_url` is a Reddit permalink, not a company ATS link. Leads require manual follow-up.
 - **`settings.local.json` has a dead `mcp__jobspy__*` entry.** Legacy from when jobspy was an MCP server. Current design runs it as a subprocess via the CLI.
-- **Phases 3 and 4 are sequential, not simultaneous.** Despite both being "background", Phase 4 does not start until all Phase 3 agents complete.
+- **Phase 4 is optional and deferred.** It is skipped by default and offered after the pipeline summary; only Phase 3 runs in the background. When opted into, Phase 4 runs foreground, sequentially per company — never simultaneously with Phase 3.
 - **Markdown description truncated twice.** Scrapers truncate to 500 chars; `output.py` truncates again to 300 chars.
 - **`pdf-9` requires Node.js ≥20 + Playwright.** It self-renders the PDF by shelling out to `node scripts/generate-pdf.mjs`. The dependency is enforced by `lead-0`'s readiness check, not by `setup_wizard.py`.
 - **`pdf-9` enforces section boundaries.** Work Experience and Projects must never cross-contaminate (e.g., side projects must not appear under Work Experience). Non-obvious constraint embedded in the agent definition.

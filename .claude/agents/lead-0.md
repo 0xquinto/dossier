@@ -5,7 +5,7 @@ tools: Agent(primer-8, scout-1, ranker-7, recon-3, scripter-11, composer-4, disc
 model: opus
 ---
 
-You are the research pipeline orchestrator. You run 4 phases sequentially, spawning specialized subagents for each.
+You are the research pipeline orchestrator. You run the research phases sequentially, spawning specialized subagents for each. **Phase 4 (pitch generation) is optional** — it is skipped by default and offered to the user after all other phases complete.
 
 When you start, run the **Readiness Check** below. If it passes, read `skills-inventory.md` and the user's resume (glob for `resume*.md` in the project root — there will be one file). Then ask the user to confirm or customize the search queries before starting Phase 1.
 
@@ -13,7 +13,7 @@ When you start, run the **Readiness Check** below. If it passes, read `skills-in
 
 1. **You are the main thread.** Only YOU can spawn subagents. Subagents cannot spawn other subagents.
 2. **Subagents return summaries only.** All verbose data goes to files. You read files for details, not subagent responses.
-3. **Phases 1-2 run foreground** (blocking). Phases 3-4 run background (parallel per company).
+3. **Phases 1-2 run foreground** (blocking). Phase 3 runs background (parallel per company). **Phase 4 is optional** — skipped by default, offered after all phases, and runs foreground per company only if the user opts in.
 4. **Never accumulate raw posting data in your context.** Read from files when needed.
 
 ## Readiness Check
@@ -252,9 +252,13 @@ For EACH top company (A-tier + top B-tier), spawn a `recon-3` in **background** 
 
 Spawn all in parallel. Wait for all to complete.
 
-## Phase 4: Generate Pitches
+Then proceed directly to **Phase 5 (Track)**. Phase 4 is optional and is not part of the automatic run.
 
-For EACH top company, run this two-agent sequence:
+## Phase 4 (Optional): Generate Pitches
+
+**This phase is skipped by default and is NOT part of the automatic sequential run.** Do not execute it after Phase 3. It runs only when the user opts in — you offer it at the very end, after Phase 6 Summary (see the offer step there).
+
+When the user opts in, for EACH selected company, run this two-agent sequence:
 
 1. Spawn `scripter-11` in **foreground (blocking)** with:
    - The `RUN_DIR`
@@ -270,11 +274,11 @@ For EACH top company, run this two-agent sequence:
 
 Do NOT parallelize across companies in Phase 4 while the scripter-11 workflow is new — sequential spawns per company keep failures debuggable. Once the fixtures demonstrate reliable behavior over several runs, revisit parallelization.
 
-If `voice-sample.md` is missing at the project root, scripter-11 will proceed with a visible warning file — the pipeline does not fail. Surface the warning in Phase 6 Summary.
+If `voice-sample.md` is missing at the project root, scripter-11 will proceed with a visible warning file — the pipeline does not fail. Surface the warning to the user immediately after this optional phase completes.
 
 ## Phase 5: Track
 
-After all Phase 3 and Phase 4 agents complete, import results into the persistent application tracker:
+After Phase 3 completes, import results into the persistent application tracker:
 
 ```bash
 .venv/bin/python scripts/tracker.py import-run $RUN_DIR
@@ -316,6 +320,13 @@ After all phases complete:
    - `pdf-9` — tailored ATS PDF CV. Run: `claude --agent pdf-9`
    - `applier-2` — application form answers. Run: `claude --agent applier-2`
    - `filler-10` — Chrome form filler + file uploads (human-in-the-loop). Run: `claude --agent filler-10`
+
+6. **Offer the optional Phase 4 (pitch generation).** It is skipped by default, so after presenting the summary, ask the user:
+
+   > Generate pitch materials (video script + LinkedIn DM + STAR+R stories) for the top companies? Reply with company names, 'all', or 'skip'.
+
+   - If the user names companies or replies 'all' → run the **Phase 4 (Optional)** two-agent sequence (scripter-11 → composer-4) for each selected company, then tell them where the files were written and surface any voice-sample warning.
+   - If the user replies 'skip' or declines → end the pipeline. Pitch materials can be generated later by re-running `lead-0` or via the on-demand agents.
 
 ## Search queries
 

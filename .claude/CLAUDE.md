@@ -2,7 +2,7 @@
 
 ## What this project is
 
-A 4-phase job research pipeline that scrapes job postings, scores them against the user's skills, finds hiring managers, and generates personalized pitch materials. Anti-mass-apply: quality over quantity.
+A job research pipeline that scrapes job postings, scores them against the user's skills, and finds hiring managers — with optional personalized pitch generation. Phases 1-3 run automatically; **Phase 4 (pitch) is skipped by default** and offered after the other phases finish. Anti-mass-apply: quality over quantity.
 
 ## Running the pipeline
 
@@ -17,14 +17,14 @@ Non-descriptive names to prevent Claude from inferring default behaviors:
 - `scout-1` — Phase 1: job board scraping (board-aggregator CLI + Chrome)
 - `applier-2` — application form answer generator (on-demand, human-in-the-loop)
 - `recon-3` — Phase 3: contact + company research (Exa + Chrome)
-- `composer-4` — Phase 4: DM drafts + outreach status + STAR+R story accumulation (reads scripter-11's video-script.md)
+- `composer-4` — Phase 4 (optional): DM drafts + outreach status + STAR+R story accumulation (reads scripter-11's video-script.md)
 - `discoverer-6` — company discovery via Exa (populates portals.yml, spawnable by lead-0)
 - `ranker-7` — Phase 2: fit scoring with archetype detection against skills-inventory.md
 - `primer-8` — onboarding: prerequisites, Exa MCP, profile building (spawned by lead-0 when readiness check fails)
 - `letter-5` — ATS cover letter generation (on-demand, keyword injection + SOAR proof points)
 - `pdf-9` — tailored ATS PDF CV generation (on-demand, keyword injection + bullet reordering)
 - `filler-10` — hybrid ATS submitter: API-first for Lever/Ashby, browser automation for Greenhouse/Workday/others (on-demand, human-in-the-loop)
-- `scripter-11` — Phase 4: video pitch script generation (draft → 8-advisor critique → revise)
+- `scripter-11` — Phase 4 (optional): video pitch script generation (draft → 8-advisor critique → revise)
 
 ## board-aggregator CLI
 

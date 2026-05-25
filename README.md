@@ -25,10 +25,10 @@ That's it. On first run, `lead-0` detects missing setup and walks you through ev
 Phase 1 — Scrape       scout-1 runs board-aggregator CLI across 13 boards + ATS portal scan of your ICP companies
 Phase 2 — Rank         ranker-7 scores each posting against your skills inventory
 Phase 3 — Research     recon-3 finds hiring managers via Exa + Chrome (parallel per company)
-Phase 4 — Pitch        scripter-11 drafts the video pitch, then composer-4 produces DM drafts + STAR+R stories (parallel per company)
+Phase 4 — Pitch        (optional) scripter-11 drafts the video pitch, then composer-4 produces DM drafts + STAR+R stories — skipped by default, offered after the other phases finish
 ```
 
-The pipeline orchestrator (`lead-0`) runs phases sequentially. Within Phases 3 and 4, one subagent spawns per company in parallel.
+The pipeline orchestrator (`lead-0`) runs phases sequentially. Phase 3 spawns one subagent per company in parallel. **Phase 4 is optional** — skipped by default and offered once the other phases finish.
 
 **Two scrape sources, one merged feed:**
 - **Generic boards** — 13 public boards (Indeed, LinkedIn, RemoteOK, Himalayas, HN, crypto/web3 boards, …) — wide net, noisy.
@@ -79,8 +79,8 @@ graph TB
     Lead -->|foreground| Scout
     Lead -->|foreground| Ranker
     Lead -->|"background ×N companies"| Recon
-    Lead -->|"background ×N companies"| Scripter
-    Lead -->|"background ×N companies"| Composer
+    Lead -.->|"optional, per company"| Scripter
+    Lead -.->|"optional, per company"| Composer
     Lead -->|"foreground (optional)"| Discoverer
     Lead -.->|on-demand| Applier
     Lead -.->|on-demand| PDF
