@@ -23,8 +23,7 @@
       "Bash(rm -rf research/runs/*)",
       "Bash(ls *)",
       "Bash(claude mcp *)",
-      "mcp__exa__*",
-      "mcp__claude-in-chrome__*"
+      "mcp__exa__*"
     ]
   }
 }

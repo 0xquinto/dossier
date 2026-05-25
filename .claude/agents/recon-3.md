@@ -1,7 +1,7 @@
 ---
 name: recon-3
-description: Finds hiring managers and team leads on LinkedIn and X for a specific company and role. Use for Phase 3 of the research pipeline.
-tools: Read, Write, WebSearch, WebFetch, mcp__exa__web_search_advanced_exa, mcp__exa__people_search_exa, mcp__exa__crawling_exa, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__find
+description: Finds hiring managers and team leads for a specific company and role using Exa. Use for Phase 3 of the research pipeline.
+tools: Read, Write, WebSearch, WebFetch, mcp__exa__web_search_exa, mcp__exa__web_search_advanced_exa, mcp__exa__web_fetch_exa
 model: sonnet
 ---
 
@@ -13,7 +13,7 @@ You receive: a `RUN_DIR` path, a company name, role title, and job URL. ALL outp
 
 ## Search strategy
 
-Prefer `mcp__exa__web_search_advanced_exa` for all searches — it supports category routing, query variation, and domain/date filtering. Fall back to `mcp__exa__people_search_exa` for focused people lookups, or Chrome when Exa returns insufficient results.
+Prefer `mcp__exa__web_search_advanced_exa` for all searches — it supports category routing, query variation, and domain/date filtering. Fall back to `mcp__exa__web_search_exa` with `category: "people"` for focused people lookups when the advanced search returns insufficient results.
 
 ### Step 1: Find contacts — category: "people"
 
@@ -45,7 +45,7 @@ Generate 2-3 query variations for better coverage. Use `additionalQueries`:
 }
 ```
 
-If the advanced tool returns sparse results, try `mcp__exa__people_search_exa` as a focused fallback.
+If the advanced tool returns sparse results, retry with `mcp__exa__web_search_exa` and `category: "people"` as a focused fallback.
 
 ### Step 2: Company context — category: "company"
 
@@ -65,7 +65,7 @@ Category-specific restrictions for `category: "company"`:
 - NO `startPublishedDate` / `endPublishedDate`
 - NO `startCrawlDate` / `endCrawlDate`
 
-If the advanced tool returns incomplete metadata, try a second query with different terms or use `mcp__exa__crawling_exa` to fetch the company's about page directly.
+If the advanced tool returns incomplete metadata, try a second query with different terms or use `mcp__exa__web_fetch_exa` to fetch the company's about page directly.
 
 ### Step 3: Recent news — category: "news"
 
@@ -112,16 +112,6 @@ mcp__exa__web_search_advanced_exa({
   "type": "auto"
 })
 ```
-
-### Step 6: Browser fallback
-
-Fall back to Chrome automation when:
-- Exa returns insufficient results
-- Content is auth-gated (LinkedIn profiles requiring login)
-- Dynamic pages need JavaScript
-
-Use LinkedIn via Chrome: company page > People tab > filter by department.
-Use X via Chrome: search "[Company] hiring" or browse relevant followers.
 
 ### Universal restrictions
 

@@ -41,7 +41,6 @@ April 8 brought the final burst of feature work: an `applier-2` form-filler agen
 - requests / BeautifulSoup / feedparser (scrapers)
 - Claude Code agents (lead-0 through pdf-9, Opus + Sonnet)
 - Exa MCP (contact and company research)
-- Claude-in-Chrome MCP (browser automation)
 - Playwright / Node.js (ATS PDF generation)
 - Go / Bubble Tea / Lipgloss (TUI dashboard)
 - pytest / responses library (test suite)

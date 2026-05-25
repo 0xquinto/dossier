@@ -1,7 +1,7 @@
 ---
 name: scout-1
-description: Scrapes job postings with salary data from multiple boards using board-aggregator CLI and Chrome. Use for Phase 1 of the research pipeline.
-tools: Read, Write, Bash, WebSearch, WebFetch, mcp__exa__crawling_exa, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__get_page_text, mcp__claude-in-chrome__read_page, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_context_mcp
+description: Scrapes job postings with salary data from multiple boards using the board-aggregator CLI. Use for Phase 1 of the research pipeline.
+tools: Read, Write, Bash, WebSearch, WebFetch, mcp__exa__web_fetch_exa
 model: sonnet
 ---
 
@@ -50,7 +50,7 @@ The CLI covers these boards automatically:
 
 The CLI handles deduplication and writes both `all-postings.md` and `all-postings.csv` to the output directory.
 
-### Stage 2: Exa crawl for non-ATS portals
+### Stage 2: Exa fetch for non-ATS portals
 
 If the subset file at `$RUN_DIR/phase-1-scrape/portals-subset.yml` does not exist (preflight produced no portal companies), skip Stage 2 entirely.
 
@@ -60,8 +60,8 @@ Otherwise, after Stage 1 completes, read the **portals subset file** (the same f
 - `last_scanned` is null or older than `scan_interval_days` from config
 
 For each matching company:
-1. Call `mcp__exa__crawling_exa` on the company's `careers_url`
-2. Parse the crawl results for job listings (look for role titles + URLs)
+1. Call `mcp__exa__web_fetch_exa` on the company's `careers_url`
+2. Parse the fetched page for job listings (look for role titles + URLs)
 3. Filter by `title_filter` from the subset file (positive keywords must match, negative must not)
 4. Append matching jobs to `$RUN_DIR/phase-1-scrape/all-postings.md` using the same format:
 

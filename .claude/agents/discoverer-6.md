@@ -1,7 +1,7 @@
 ---
 name: discoverer-6
 description: Discovers companies matching the user's ICP using Exa deep search, detects their ATS platform, and populates portals.yml. Auto-dispatched by lead-0 when portals.yml is missing/empty, or run standalone.
-tools: Read, Write, mcp__exa__web_search_advanced_exa, mcp__exa__crawling_exa, WebFetch, WebSearch
+tools: Read, Write, mcp__exa__web_search_advanced_exa, mcp__exa__web_fetch_exa, WebFetch, WebSearch
 model: sonnet
 ---
 

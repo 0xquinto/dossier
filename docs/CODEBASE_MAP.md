@@ -41,7 +41,6 @@ graph TB
         Reddit["Reddit JSON API<br/>20 subreddits"]
         ATS["ATS APIs<br/>Greenhouse / Ashby / Lever"]
         Exa[Exa MCP]
-        Chrome[Claude-in-Chrome]
     end
 
     subgraph Data["Input Files"]
@@ -80,8 +79,6 @@ graph TB
     Runner --> Output
 
     Recon --> Exa
-    Recon --> Chrome
-    Scout -.->|optional Wellfound| Chrome
     Disc --> Exa
 
     Skills --> Ranker
@@ -116,7 +113,7 @@ graph TB
 │       ├── applier-2.md           # Application form answer generator (Sonnet)
 │       ├── letter-5.md            # ATS cover letter generation (Opus, on-demand)
 │       ├── pdf-9.md               # ATS PDF CV generation (Sonnet)
-│       └── filler-10.md           # Hybrid ATS submitter: API + browser (Opus, on-demand, human-in-the-loop)
+│       └── filler-10.md           # ATS submitter: Lever/Ashby API (Opus, on-demand, human-in-the-loop)
 ├── .github/
 │   └── workflows/
 │       ├── test.yml               # CI: pytest on Python 3.12 + 3.13 (push/PR to main)
@@ -309,9 +306,9 @@ graph TB
 | Agent | Phase / Role | Model | Key Tools | Blocking? |
 |-------|-------------|-------|-----------|-----------|
 | `lead-0` | Orchestrator | Opus | Agent spawning, Read, Write, Glob, Grep | Main thread |
-| `scout-1` | Phase 1 — Scrape | Sonnet | Bash (CLI), Read, Write, WebFetch, Exa crawl, Chrome | Foreground |
+| `scout-1` | Phase 1 — Scrape | Sonnet | Bash (CLI), Read, Write, WebFetch, Exa fetch | Foreground |
 | `ranker-7` | Phase 2 — Rank | Sonnet | Read, Write, Grep, Glob | Foreground |
-| `recon-3` | Phase 3 — Contacts | Sonnet | Read, Write, WebSearch, Exa advanced search, Chrome | Background (one per company) |
+| `recon-3` | Phase 3 — Contacts | Sonnet | Read, Write, WebSearch, Exa advanced search | Background (one per company) |
 | `scripter-11` | Phase 4 (optional) — Video scripts | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
 | `composer-4` | Phase 4 (optional) — Pitch materials | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
 | `discoverer-6` | Portal discovery | Sonnet | Read, Write, Exa company research, WebFetch | Auto-dispatched by lead-0 (foreground) when portals.yml is missing/empty; also runs standalone |
@@ -319,7 +316,7 @@ graph TB
 | `applier-2` | Application forms | Sonnet | Read, Write, Glob, Grep | On-demand, human-in-the-loop |
 | `letter-5` | ATS cover letter | Opus | Read, Write, Glob, Grep | On-demand, keyword injection + SOAR proof points |
 | `pdf-9` | ATS PDF generation | Sonnet | Read, Write, Glob, Grep, Bash | On-demand; self-renders PDF via `node scripts/generate-pdf.mjs`; keyword injection + bullet reordering; enforces Work-Experience-vs-Projects section boundaries |
-| `filler-10` | ATS submitter | Opus | Read, Write, Glob, Grep, Bash, Chrome MCP | On-demand, hybrid (API + browser), human-in-the-loop |
+| `filler-10` | ATS submitter | Opus | Read, Write, Glob, Grep, Bash | On-demand, Lever/Ashby API; delegates others to applier-2 |
 
 **`discoverer-6` role:** Populates `portals.yml` with companies matching the user's ICP. lead-0's Portal Bootstrap step auto-dispatches it (foreground) when `portals.yml` is missing or has no `active: true` companies; it also runs standalone. If `portals.yml` is missing it first scaffolds one (`config` + `title_filter` from `templates/portals.example.yml`, empty `companies`). Searches Exa by vertical, detects ATS platform from careers URL patterns, scores ICP fit 1-10, appends entries scoring ≥ `config.icp_min_score`. Never modifies `last_scanned`, `last_had_openings`, or `active` — those are scout-1's fields.
 
@@ -345,7 +342,7 @@ companies:
     domain: acme.com
     ats: greenhouse            # "greenhouse" | "ashby" | "lever" | null
     slug: acmecorp             # ATS-specific slug; null when ats is null
-    careers_url: ...           # used by scout-1 Exa crawl when ats is null
+    careers_url: ...           # used by scout-1 Exa fetch when ats is null
     icp_fit_score: 8
     icp_fit_reasoning: "..."
     source: exa-discovery      # "manual" | "exa-discovery"
@@ -385,7 +382,7 @@ sequenceDiagram
     Lead->>Scout: RUN_DIR + queries
     Scout->>BA: board-aggregator -q ... -o $RUN_DIR/phase-1-scrape [--portals portals.yml]
     BA->>BA: Stage 1: run 10 scrapers, dedup, write CSV+MD
-    BA->>BA: Stage 2: scan ATS portals + Exa crawl for ats:null companies
+    BA->>BA: Stage 2: scan ATS portals + Exa fetch for ats:null companies
     Scout-->>Lead: "Found N postings, M unique"
 
     Note over Lead: Phase 2 (foreground — lead blocks)

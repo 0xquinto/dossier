@@ -16,16 +16,16 @@ Requires the **Claude Code terminal CLI** — `lead-0` and the on-demand agents 
 
 Non-descriptive names to prevent Claude from inferring default behaviors:
 - `lead-0` — pipeline orchestrator
-- `scout-1` — Phase 1: job board scraping (board-aggregator CLI + Chrome)
+- `scout-1` — Phase 1: job board scraping (board-aggregator CLI)
 - `applier-2` — application form answer generator (on-demand, human-in-the-loop)
-- `recon-3` — Phase 3: contact + company research (Exa + Chrome)
+- `recon-3` — Phase 3: contact + company research (Exa)
 - `composer-4` — Phase 4 (optional): DM drafts + outreach status + STAR+R story accumulation (reads scripter-11's video-script.md)
 - `discoverer-6` — company discovery via Exa (populates portals.yml; lead-0 auto-offers it when portals.yml is missing/empty, or run standalone)
 - `ranker-7` — Phase 2: fit scoring with archetype detection against skills-inventory.md
 - `primer-8` — onboarding: prerequisites, Exa MCP, profile building (spawned by lead-0 when readiness check fails)
 - `letter-5` — ATS cover letter generation (on-demand, keyword injection + SOAR proof points)
 - `pdf-9` — tailored ATS PDF CV generation (on-demand, keyword injection + bullet reordering)
-- `filler-10` — hybrid ATS submitter: API-first for Lever/Ashby, browser automation for Greenhouse/Workday/others (on-demand, human-in-the-loop)
+- `filler-10` — ATS submitter: API submission for Lever/Ashby; delegates other ATSes to applier-2 for manual submission (on-demand, human-in-the-loop)
 - `scripter-11` — Phase 4 (optional): video pitch script generation (draft → 8-advisor critique → revise)
 
 ## board-aggregator CLI
@@ -93,7 +93,7 @@ This constraint survives context compaction because it is in CLAUDE.md.
 
 4-phase Claude agent pipeline + Python scraping engine. Agents orchestrated by lead-0 (Opus), scrapers via `board_aggregator` Click CLI.
 
-**Stack**: Python 3.12+, Click, Pydantic, python-jobspy, requests, feedparser, BeautifulSoup, Exa MCP, Claude-in-Chrome MCP
+**Stack**: Python 3.12+, Click, Pydantic, python-jobspy, requests, feedparser, BeautifulSoup, Exa MCP
 **Structure**: `.claude/agents/` (12 agent defs), `board_aggregator/` (13 scrapers, 13 boards), `tests/` (mocked HTTP), `scripts/` (tracker.py, generate-pdf.mjs, normalize-ats.mjs), `dashboard/` (Go TUI)
 
 For detailed architecture, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).

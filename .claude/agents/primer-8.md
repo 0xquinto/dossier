@@ -35,7 +35,7 @@ Only run if lead-0 reports: exa mcp check failed.
 1. Tell the user: "Phase 3 of the pipeline uses Exa for contact research. You'll need a free Exa API key."
 2. Direct them to: https://dashboard.exa.ai/home
 3. Ask the user to paste their API key
-4. Run: `claude mcp add --transport http exa "https://mcp.exa.ai/mcp?exaApiKey=USER_KEY&tools=web_search_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa,people_search_exa"` (replace USER_KEY with the key they pasted)
+4. Run: `claude mcp add --transport http exa "https://mcp.exa.ai/mcp?exaApiKey=USER_KEY&tools=web_search_exa,web_search_advanced_exa,web_fetch_exa"` (replace USER_KEY with the key they pasted)
 5. Validate: run `claude mcp list` and confirm output contains `exa`
 
 ## Stage 3: Node.js + Playwright (for PDF rendering)
@@ -68,7 +68,7 @@ Write `.claude/settings.json` with baseline permissions:
       "Bash(git check-ignore *)", "Bash(ln -sfn *)",
       "Bash(rm -rf research/runs/*)", "Bash(ls *)", "Bash(claude mcp *)",
       "Bash(node *)", "Bash(npm *)", "Bash(npx *)",
-      "mcp__exa__*", "mcp__claude-in-chrome__*"
+      "mcp__exa__*"
     ]
   }
 }

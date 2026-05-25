@@ -41,7 +41,7 @@ Docs: [sub-agents (CLI-only)](https://code.claude.com/docs/en/sub-agents) · [Cl
 ```
 Phase 1 — Scrape       scout-1 runs board-aggregator CLI across 13 boards + ATS portal scan of your ICP companies
 Phase 2 — Rank         ranker-7 scores each posting against your skills inventory
-Phase 3 — Research     recon-3 finds hiring managers via Exa + Chrome (parallel per company)
+Phase 3 — Research     recon-3 finds hiring managers via Exa (parallel per company)
 Phase 4 — Pitch        (optional) scripter-11 drafts the video pitch, then composer-4 produces DM drafts + STAR+R stories — skipped by default, offered after the other phases finish
 ```
 
@@ -59,7 +59,7 @@ Each run writes to a timestamped directory under `research/runs/`. The most rece
 - `applier-2` — generates copy-paste answers for application forms (human-in-the-loop)
 - `letter-5` — ATS cover letter generation (keyword injection + SOAR proof points)
 - `pdf-9` — tailored ATS PDF CV generation (keyword injection + bullet reordering)
-- `filler-10` — hybrid ATS submitter: API-first for Lever/Ashby, browser automation for Greenhouse/Workday/others (human-in-the-loop)
+- `filler-10` — ATS submitter: API submission for Lever/Ashby; other ATSes delegate to applier-2 for manual submission (human-in-the-loop)
 
 **Utilities:**
 - `scripts/tracker.py` — application status tracker CLI (add, update, import-run, dedup, show)

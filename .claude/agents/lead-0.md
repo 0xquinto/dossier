@@ -123,7 +123,7 @@ The pipeline has 13 registered scrapers. Use this list verbatim in the preview:
 
 ### Step 2: Read active portal companies
 
-If `portals.yml` exists at the project root, read it and collect every entry where `active: true`. For the preview display, capture: `name`, `slug`, `ats` (or "exa-crawl" if `ats: null`), `icp_fit_score`. For the subset file (Step 6), you must preserve EVERY field of each kept entry — `careers_url` in particular is required by scout-1 Stage 2 for non-ATS company crawls.
+If `portals.yml` exists at the project root, read it and collect every entry where `active: true`. For the preview display, capture: `name`, `slug`, `ats` (or "exa-fetch" if `ats: null`), `icp_fit_score`. For the subset file (Step 6), you must preserve EVERY field of each kept entry — `careers_url` in particular is required by scout-1 Stage 2 for non-ATS company fetches.
 
 If `portals.yml` does not exist OR has zero `active: true` entries, skip the portals section of the preview.
 
@@ -247,9 +247,7 @@ Rules:
 The scout-1 prompt MUST include:
 - `RUN_DIR`
 - The exact bash command above (resolved, no placeholders)
-- An instruction to run Stage 2 (Exa crawl) only if the subset file exists
-
-scout-1 will also run Wellfound Chrome scraping for startup coverage if you explicitly request it in the prompt.
+- An instruction to run Stage 2 (Exa fetch) only if the subset file exists
 
 Wait for completion. Read the summary (posting count, board breakdown).
 
@@ -340,7 +338,7 @@ After all phases complete:
    - `letter-5` — ATS cover letter (markdown + HTML/PDF). Run: `claude --agent letter-5`
    - `pdf-9` — tailored ATS PDF CV. Run: `claude --agent pdf-9`
    - `applier-2` — application form answers. Run: `claude --agent applier-2`
-   - `filler-10` — Chrome form filler + file uploads (human-in-the-loop). Run: `claude --agent filler-10`
+   - `filler-10` — API form submitter for Lever/Ashby (human-in-the-loop). Run: `claude --agent filler-10`
 
 6. **Offer the optional Phase 4 (pitch generation).** It is skipped by default, so after presenting the summary, ask the user:
 
