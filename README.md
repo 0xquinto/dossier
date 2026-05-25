@@ -34,7 +34,7 @@ The pipeline orchestrator (`lead-0`) runs phases sequentially. Phase 3 spawns on
 - **Generic boards** — 13 public boards (Indeed, LinkedIn, RemoteOK, Himalayas, HN, crypto/web3 boards, …) — wide net, noisy.
 - **Per-company ATS portals** — direct hits to Greenhouse / Ashby / Lever public APIs for the companies in `portals.yml` — narrow, high-signal. No auth needed. Scout-1 marks portals inactive after 30 days with no openings; `discoverer-6` adds new ones.
 
-**Optional pre-step:** Run `discoverer-6` to find companies matching your ICP and populate `portals.yml` so Phase 1 will scan their ATSes directly.
+**Portal discovery:** If `portals.yml` is missing or has no active companies, `lead-0` offers to run `discoverer-6` to auto-discover companies matching your skills-inventory and populate it before Phase 1. You can also run `discoverer-6` standalone anytime to expand the list.
 
 Each run writes to a timestamped directory under `research/runs/`. The most recent run is symlinked at `research/latest/`.
 
@@ -81,7 +81,7 @@ graph TB
     Lead -->|"background ×N companies"| Recon
     Lead -.->|"optional, per company"| Scripter
     Lead -.->|"optional, per company"| Composer
-    Lead -->|"foreground (optional)"| Discoverer
+    Lead -->|"foreground (if portals empty)"| Discoverer
     Lead -.->|on-demand| Applier
     Lead -.->|on-demand| PDF
     Discoverer -->|writes| PortalsYml

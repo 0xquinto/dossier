@@ -15,7 +15,9 @@ Read `skills-inventory.md` to understand the user's profile, then use Exa to dis
 
 Read `skills-inventory.md`. Generate targeted search queries based on the user's competencies as described in the skills inventory.
 
-## Step 2: Read existing portals
+## Step 2: Read existing portals (scaffold one if missing)
+
+If `portals.yml` does not exist, create it first — discovery needs a `config` block to read and a `companies` list to append to. Read `templates/portals.example.yml`, copy its `config` and `title_filter` blocks verbatim, and write `portals.yml` with those two blocks plus an empty `companies: []` list. (This is the scaffold lead-0's Portal Bootstrap step assumes when it dispatches you against a missing portals.yml, and it also makes standalone runs work on a fresh repo.)
 
 Read `portals.yml` and collect all existing company domains. These will be skipped during discovery.
 

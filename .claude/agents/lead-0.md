@@ -27,11 +27,11 @@ Before anything else, validate that the environment is ready. Run these checks:
 5. **Resume**: Glob for `resume*.md` in project root. Fail if no match or first line of the match is `# Your Name`.
 6. **Exa MCP**: Run `claude mcp list`. Fail if output does not contain a line starting with `exa:`.
 7. **Node.js + Playwright** (needed by pdf-9 to render the CV PDF): Run `node --version`. Fail if missing or major version < 20. Then check `node_modules/playwright/package.json` exists. Fail if missing.
-8. **portals.yml** (optional): Check if `portals.yml` exists in project root. This is a SOFT check — its absence does not block the pipeline (scout-1 will simply skip ATS portal scanning). Report as failed only so primer-8 can offer to bootstrap it from `templates/portals.example.yml`.
+8. **portals.yml** (optional): Check whether `portals.yml` exists in the project root with at least one `active: true` entry. This is a SOFT, informational check — a missing or empty portals.yml does not block the pipeline (scout-1 simply skips ATS portal scanning) and does NOT trigger primer-8. Note the result; it is handled by the **Portal Bootstrap** step below.
 
-**If all checks pass:** Continue to query generation and Phase 1.
+**If all HARD checks (1-7) pass:** Continue. (The Portal Bootstrap step handles a missing or empty portals.yml.)
 
-**If any check fails:** Spawn `primer-8` in **foreground** with this prompt format:
+**If any HARD check (1-7) fails:** Spawn `primer-8` in **foreground** with this prompt format:
 
 ```
 The following readiness checks failed:
@@ -42,12 +42,11 @@ The following readiness checks failed:
 - resume: [missing / template-only]
 - exa-mcp: [not configured]
 - node-pdf: [node missing / version too low / playwright not installed]
-- portals: [missing — optional, offer to bootstrap from template]
 
 Only fix the items listed above. Skip everything else.
 ```
 
-After primer-8 returns, re-run ALL checks. If any HARD checks (1-7) still fail, tell the user what's still missing and stop. If only the SOFT check (portals.yml) is still missing, continue — the user declined to bootstrap it.
+After primer-8 returns, re-run the hard checks (1-7). If any still fail, tell the user what's still missing and stop. Otherwise continue to the Portal Bootstrap step.
 
 ## Run Versioning
 
@@ -75,6 +74,28 @@ Before starting any phase, you MUST set up the run directory:
 After all phases complete:
 - Update `meta.json` with `completed_at` and phase statistics
 - Update the `research/latest` symlink to point to the current run directory. Use a scout-1 agent with Bash: `ln -sfn runs/$RUN_ID research/latest`
+
+## Portal Bootstrap (if portals.yml is missing or empty)
+
+ATS portal scanning (Phase 1 Stage 2) only contributes results when `portals.yml` has companies marked `active: true`. After the readiness check and before the Phase 1 Preflight, evaluate `portals.yml`:
+
+- It exists with at least one `active: true` entry → skip this step and proceed to the Phase 1 Preflight.
+- It is **missing**, or it exists but has **zero `active: true` entries** → the portal scan would contribute nothing. Ask the user:
+
+  ```
+  portals.yml has no active companies, so this run would scrape only the
+  generic job boards. Auto-discover companies that match your
+  skills-inventory and add them to portals.yml? (yes / skip)
+  ```
+
+  - **yes** → spawn `discoverer-6` in **foreground** with this prompt:
+    ```
+    Read skills-inventory.md, discover companies matching the user's ICP via
+    Exa, detect each company's ATS, and append them to portals.yml with
+    active: true. Write only to portals.yml.
+    ```
+    `discoverer-6` reads `skills-inventory.md` and writes only to `portals.yml` (it does NOT use RUN_DIR). Wait for it to return, then re-read `portals.yml` so the newly discovered companies appear in the Phase 1 Preflight preview.
+  - **skip** → continue; scout-1 will omit `--portals` and scrape job boards only. (To hand-pick companies instead, copy `templates/portals.example.yml` → `portals.yml` and edit it before re-running.)
 
 ## Phase 1 Preflight
 

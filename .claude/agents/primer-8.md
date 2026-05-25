@@ -122,18 +122,6 @@ Build both files from their answers.
 6. Apply requested changes
 7. Write both final files to the project root
 
-## Stage 6: portals.yml bootstrap
-
-Only run if lead-0 reports: portals check failed (missing file).
-
-`portals.yml` is **optional** — scout-1 only uses it when present (enables direct ATS scanning for Greenhouse/Ashby/Lever and Exa crawl for non-ATS company careers pages). Without it, the pipeline still runs job-board scraping normally.
-
-1. Tell the user: "`portals.yml` is missing. It's optional but lets the pipeline scan specific companies' career pages directly (in addition to job boards). Want to bootstrap one from the template?"
-2. If yes:
-   - Copy `templates/portals.example.yml` → `portals.yml`
-   - Tell the user: "Edit `portals.yml` to add your target companies, then re-run the pipeline. You can also run `claude --agent discoverer-6` to auto-discover companies matching your skills-inventory."
-3. If no: skip silently, the pipeline will run without portal scanning.
-
 ## What you return
 
 Return ONLY a 1-2 sentence summary to lead-0. Example: "Setup complete. Installed Python 3.12, configured Exa MCP, built profile from user's CV and GitHub."

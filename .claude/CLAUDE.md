@@ -18,7 +18,7 @@ Non-descriptive names to prevent Claude from inferring default behaviors:
 - `applier-2` — application form answer generator (on-demand, human-in-the-loop)
 - `recon-3` — Phase 3: contact + company research (Exa + Chrome)
 - `composer-4` — Phase 4 (optional): DM drafts + outreach status + STAR+R story accumulation (reads scripter-11's video-script.md)
-- `discoverer-6` — company discovery via Exa (populates portals.yml, spawnable by lead-0)
+- `discoverer-6` — company discovery via Exa (populates portals.yml; lead-0 auto-offers it when portals.yml is missing/empty, or run standalone)
 - `ranker-7` — Phase 2: fit scoring with archetype detection against skills-inventory.md
 - `primer-8` — onboarding: prerequisites, Exa MCP, profile building (spawned by lead-0 when readiness check fails)
 - `letter-5` — ATS cover letter generation (on-demand, keyword injection + SOAR proof points)
