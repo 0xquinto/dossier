@@ -18,7 +18,7 @@ graph TB
         Ranker[ranker-7<br/>Phase 2: Rank]
         Recon[recon-3<br/>Phase 3: Contacts]
         Composer[composer-4<br/>Phase 4: Pitch<br/>(optional)]
-        Disc[discoverer-6<br/>Pre-pipeline]
+        Disc[discoverer-6<br/>Portal Bootstrap]
     end
 
     subgraph BoardAgg["board-aggregator CLI"]
@@ -61,6 +61,7 @@ graph TB
     Lead -->|foreground| Ranker
     Lead -->|"background ×N companies"| Recon
     Lead -.->|"optional, per company"| Composer
+    Lead -.->|"if portals missing/empty"| Disc
     Disc -.->|populates| Portals
 
     Scout --> CLI
@@ -313,14 +314,14 @@ graph TB
 | `recon-3` | Phase 3 — Contacts | Sonnet | Read, Write, WebSearch, Exa advanced search, Chrome | Background (one per company) |
 | `scripter-11` | Phase 4 (optional) — Video scripts | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
 | `composer-4` | Phase 4 (optional) — Pitch materials | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
-| `discoverer-6` | Company discovery | Sonnet | Read, Write, Exa company research, WebFetch | Spawnable by lead-0; run before pipeline to expand portals.yml |
+| `discoverer-6` | Portal discovery | Sonnet | Read, Write, Exa company research, WebFetch | Auto-dispatched by lead-0 (foreground) when portals.yml is missing/empty; also runs standalone |
 | `primer-8` | Onboarding | Opus | Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch | Spawned by lead-0 on readiness check failure |
 | `applier-2` | Application forms | Sonnet | Read, Write, Glob, Grep | On-demand, human-in-the-loop |
 | `letter-5` | ATS cover letter | Opus | Read, Write, Glob, Grep | On-demand, keyword injection + SOAR proof points |
 | `pdf-9` | ATS PDF generation | Sonnet | Read, Write, Glob, Grep, Bash | On-demand; self-renders PDF via `node scripts/generate-pdf.mjs`; keyword injection + bullet reordering; enforces Work-Experience-vs-Projects section boundaries |
 | `filler-10` | ATS submitter | Opus | Read, Write, Glob, Grep, Bash, Chrome MCP | On-demand, hybrid (API + browser), human-in-the-loop |
 
-**`discoverer-6` role:** Expands `portals.yml` with new companies matching the user's ICP. Spawnable by lead-0 or run manually before the pipeline. Searches Exa by vertical, detects ATS platform from careers URL patterns, scores ICP fit 1-10, appends entries scoring ≥ `config.icp_min_score`. Never modifies `last_scanned`, `last_had_openings`, or `active` — those are scout-1's fields.
+**`discoverer-6` role:** Populates `portals.yml` with companies matching the user's ICP. lead-0's Portal Bootstrap step auto-dispatches it (foreground) when `portals.yml` is missing or has no `active: true` companies; it also runs standalone. If `portals.yml` is missing it first scaffolds one (`config` + `title_filter` from `templates/portals.example.yml`, empty `companies`). Searches Exa by vertical, detects ATS platform from careers URL patterns, scores ICP fit 1-10, appends entries scoring ≥ `config.icp_min_score`. Never modifies `last_scanned`, `last_had_openings`, or `active` — those are scout-1's fields.
 
 **`primer-8` role:** Onboarding agent spawned by lead-0 when readiness check fails. Handles prerequisites (Homebrew, Python 3.12+, git), Exa MCP configuration, project permissions, and profile building (skills-inventory.md + resume.md). Guides user through setup steps and validates the installation before returning control to lead-0.
 
@@ -362,6 +363,7 @@ companies:
 sequenceDiagram
     participant User
     participant Lead as lead-0
+    participant Disc as discoverer-6
     participant Scout as scout-1
     participant BA as board-aggregator CLI
     participant Ranker as ranker-7
@@ -372,6 +374,12 @@ sequenceDiagram
     Lead->>Lead: Read skills-inventory.md + resume
     Lead->>User: Confirm/customize queries
     User->>Lead: Approved queries
+
+    Note over Lead: Portal Bootstrap (if portals.yml missing/empty)
+    opt portals.yml missing or no active companies
+        Lead->>Disc: populate portals.yml from skills-inventory
+        Disc-->>Lead: "Added N companies"
+    end
 
     Note over Lead: Phase 1 (foreground — lead blocks)
     Lead->>Scout: RUN_DIR + queries
