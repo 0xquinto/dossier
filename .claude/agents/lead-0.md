@@ -103,7 +103,7 @@ Before spawning scout-1, you MUST show the user exactly what will be scraped and
 
 ### Step 1: Build the scraper list
 
-The pipeline has 13 registered scrapers. Use this list verbatim in the preview:
+The pipeline has 14 registered scrapers. Use this list verbatim in the preview:
 
 | Name | Description |
 |---|---|
@@ -120,6 +120,7 @@ The pipeline has 13 registered scrapers. Use this list verbatim in the preview:
 | `reddit` | 19 job-related subreddits (multireddit JSON) |
 | `indiehackers` | Indie Hackers job board (Algolia API) |
 | `nocodejobs` | No Code Jobs (HTML) |
+| `80000hours` | 80,000 Hours high-impact / EA roles (Algolia API) |
 
 ### Step 2: Read active portal companies
 
@@ -136,7 +137,7 @@ Phase 1 will scrape the following.
 Reply 'go' to run everything as shown, or describe what to skip/keep
 (e.g. "skip reddit and crypto boards, only companies with icp >= 8").
 
-Scrapers (13):
+Scrapers (14):
   • jobspy             — Indeed + LinkedIn
   • himalayas          — remote-first board
   • weworkremotely     — RSS
@@ -150,6 +151,7 @@ Scrapers (13):
   • reddit             — 19 job-related subreddits
   • indiehackers       — Indie Hackers job board
   • nocodejobs         — No Code Jobs
+  • 80000hours         — 80,000 Hours high-impact / EA roles
 
 Portal companies (N active):
   • Anthropic         (greenhouse) icp:10
@@ -181,7 +183,7 @@ If the reply names a scraper that doesn't exist (e.g. "skip foobar"), tell the u
 ### Step 5: Compute effective subsets
 
 Produce two lists:
-- `effective_scrapers`: subset of the 13 scraper names
+- `effective_scrapers`: subset of the 14 scraper names
 - `effective_companies`: subset of the active portal entries (full objects with all fields)
 
 Edge cases:

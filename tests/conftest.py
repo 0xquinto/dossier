@@ -49,3 +49,42 @@ HIMALAYAS_API_RESPONSE = {
         },
     ],
 }
+
+EIGHTY_THOUSAND_HOURS_API_RESPONSE = {
+    "nbHits": 2,
+    "page": 0,
+    "nbPages": 1,
+    "hitsPerPage": 100,
+    "hits": [
+        {
+            "objectID": "19948",
+            "post_pk": 19948,
+            "title": "Software Engineer, Core Technology",
+            "company_name": "UK Government, AI Security Institute",
+            "company": {"name": "UK Government, AI Security Institute"},
+            "url_external": "https://job-boards.eu.greenhouse.io/aisi/jobs/4386112101?utm_source=80000hours",
+            "description_short": "<ul>\n<li>Build evaluation frameworks.</li>\n</ul>",
+            "tags_location_type": [],
+            "tags_location_80k": ["London, UK", "UK"],
+            "card_locations": ["London, UK"],
+            "tags_city": ["London, UK"],
+            "tags_country": ["UK"],
+            "posted_at": 1781481900,
+        },
+        {
+            "objectID": "19949",
+            "post_pk": 19949,
+            "title": "Finance Associate / Staff Accountant",
+            "company_name": "Rethink Priorities",
+            "company": {"name": "Rethink Priorities"},
+            "url_external": "https://careers.rethinkpriorities.org/en/postings/9cd02f35",
+            "description_short": "<p>Own the books.</p>",
+            "tags_location_type": ["Remote"],
+            "tags_location_80k": ["Remote, Global", "Global"],
+            "card_locations": ["Remote, Global"],
+            "tags_city": ["Remote, Global"],
+            "tags_country": ["Remote, Global"],
+            "posted_at": 1781481660,
+        },
+    ],
+}

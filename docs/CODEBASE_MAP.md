@@ -25,7 +25,7 @@ graph TB
         CLI[cli.py]
         Runner[runner.py]
         Registry[scrapers/__init__.py]
-        Scrapers["13 scrapers<br/>(13 boards)"]
+        Scrapers["14 scrapers<br/>(14 boards)"]
         Portal[portal_scanner.py]
         Output[output.py]
         Models[models.py]
@@ -140,7 +140,8 @@ graph TB
 │       ├── remoteok.py            # RemoteOK JSON API
 │       ├── reddit_jobs.py         # Reddit multireddit JSON API (20 subreddits, 2 tiers)
 │       ├── indiehackers.py        # Indie Hackers public Algolia jobAds index (closedTimestamp filter)
-│       └── nocodejobs.py          # No Code Jobs static Astro HTML (.job-item data-* attrs)
+│       ├── nocodejobs.py          # No Code Jobs static Astro HTML (.job-item data-* attrs)
+│       └── eighty_thousand_hours.py  # 80,000 Hours via EA Work public Algolia index (jobs_prod)
 ├── templates/
 │   ├── skills-inventory.example.md  # Starter template copied to skills-inventory.md by wizard
 │   ├── resume.example.md            # Starter template copied to resume.md by wizard
@@ -165,6 +166,7 @@ graph TB
 │   ├── test_reddit_jobs.py        # Reddit scraper (pagination, retry, company extraction)
 │   ├── test_indiehackers.py       # Indie Hackers Algolia scraper
 │   ├── test_nocodejobs.py         # No Code Jobs HTML scraper
+│   ├── test_eighty_thousand_hours.py  # 80,000 Hours Algolia scraper
 │   ├── test_tracker.py            # Application tracker CLI (17 tests)
 │   └── test_wizard.py             # setup_wizard.py helpers
 ├── docs/
@@ -294,6 +296,7 @@ graph TB
 | `cryptocurrencyjobs` | cryptocurrencyjobs.co | HTML card parsing | No | 3 category pages; `<li>` cards; multi-currency salary regex |
 | `remoteok` | RemoteOK | JSON API | No | Skips first array element (legal notice); `is_remote=True` hardcoded |
 | `reddit` | 19 subreddits (multireddit) | Reddit JSON API (`/new.json`) | No | 2-tier system; Tier 2 needs hiring-signal regex; 5-step company extraction; 3-page limit; retry on 429 |
+| `80000hours` | 80,000 Hours | Algolia search API | **Yes** | EA Work `jobs_prod` index (search-only key); 3 pages × 100/query, deduped by `objectID`; remote from `tags_location_type`; Unix → ISO date |
 
 **Reddit scraper tiers:**
 - **Tier 1** (direct job boards): `forhire`, `hiring`, `jobbit`, `remotejobs` — posts pass without keyword filtering
