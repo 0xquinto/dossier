@@ -72,6 +72,7 @@ def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrap
     import board_aggregator.scrapers.reddit_jobs  # noqa: F401
     import board_aggregator.scrapers.indiehackers  # noqa: F401
     import board_aggregator.scrapers.nocodejobs  # noqa: F401
+    import board_aggregator.scrapers.eighty_thousand_hours  # noqa: F401
 
     from board_aggregator.scrapers import SCRAPER_REGISTRY
 
