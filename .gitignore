@@ -17,9 +17,16 @@ build/
 # Environment
 .venv/
 .env
+.dev.vars
+*.dev.vars
+.wrangler/
 
 # Context sync (generated)
 .context-sync-*
+
+# Internal/handoff scratch (SaaS-branch state, vault-linked notes — not for the public repo)
+STATE.md
+docs/plans/
 
 # OS
 .DS_Store
