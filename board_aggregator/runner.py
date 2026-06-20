@@ -3,7 +3,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from board_aggregator.models import JobPosting
-from board_aggregator.output import write_csv, write_markdown
+from board_aggregator.output import write_compact_index, write_csv, write_markdown
 from board_aggregator.scrapers import get_all_scrapers
 
 
@@ -106,7 +106,10 @@ def collect_from_boards(
     available = get_all_scrapers()
 
     for scraper in available:
-        if scrapers and scraper.name not in scrapers:
+        # Gate on `is not None`, not truthiness: an explicit empty list means
+        # "run zero boards" (e.g. -s of an all-denied set). `if scrapers` would
+        # treat [] as falsy and run *all* boards — the C2 bypass.
+        if scrapers is not None and scraper.name not in scrapers:
             continue
 
         print(f"[runner] Scraping {scraper.name}...")
@@ -166,7 +169,11 @@ def run_all(
     unique_jobs = deduplicate(all_jobs)
     print(f"[runner] Total after dedup: {len(unique_jobs)}")
 
+    # Write-once: a fresh RUN_DIR per run means these must not exist yet.
+    # If they do, a second scout ran in the same dir (T1-4) — fail loudly
+    # rather than silently clobber the first run's results.
     write_csv(unique_jobs, output_dir / "all-postings.csv")
     write_markdown(unique_jobs, output_dir / "all-postings.md")
+    write_compact_index(unique_jobs, output_dir / "all-postings-index.json")
 
     return unique_jobs
