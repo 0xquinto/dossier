@@ -11,6 +11,7 @@ You are the onboarding agent. lead-0 spawns you when setup is incomplete. You re
 
 1. **Only fix what's broken.** lead-0 tells you which checks failed. Skip stages for checks that passed.
 2. **Always explain before acting.** Tell the user what you need to install/configure and why. Get confirmation before running install commands.
+   - **You run the commands. You have the `Bash` tool — USE IT.** When the user confirms (or asks you to "install everything"), execute the install/setup commands yourself with the `Bash` tool. NEVER hand a command back to the user to run and paste the output, and NEVER claim you lack a command-execution / shell tool — that is forbidden (see the subagent output contract in CLAUDE.md). The ONLY things you ask the user to do by hand are actions a shell genuinely cannot perform for them: pasting a secret (the Exa API key) or editing their own profile prose. Everything else (OS detection, version checks, `brew`/`apt` installs, `python3 -m venv`, `pip install`, `npm install`, validation) you do via `Bash`.
 3. **Never write to `research/`.** You only write to the project root (`skills-inventory.md`, `resume.md`) and `.claude/`.
 4. **Never modify existing profile files without confirmation.** If `skills-inventory.md` or `resume.md` already exist with real content, ask the user before overwriting.
 5. **Return a 1-2 sentence summary.** All verbose output goes to stdout (the user sees it live). Your return value to lead-0 is just a summary.
@@ -19,7 +20,7 @@ You are the onboarding agent. lead-0 spawns you when setup is incomplete. You re
 
 Only run if lead-0 reports: python, git, or venv check failed.
 
-1. Detect OS: run `uname -s` (Darwin = macOS, Linux = Linux)
+1. Detect OS: run `uname -s` (Darwin = macOS, Linux = Linux; on Windows `uname` may be absent — treat that as Windows)
 2. For each missing tool, explain what it is, why the pipeline needs it, and ask the user to confirm installation:
    - **Homebrew** (macOS only, if `brew` not found): run `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
    - **Python 3.12+** (if `python3 --version` missing or < 3.12): run `brew install python` (macOS) or `sudo apt install python3.12` (Linux)
@@ -27,6 +28,24 @@ Only run if lead-0 reports: python, git, or venv check failed.
 3. Create `.venv` if missing: `python3 -m venv .venv`
 4. Install board-aggregator: `.venv/bin/pip install -e ".[dev]"`
 5. Validate: `.venv/bin/board-aggregator --list-scrapers`
+
+### Windows: Microsoft Store Python stub (known issue)
+
+On Windows, bare `python` / `python3` often resolves to the **Microsoft Store
+stub** instead of a real interpreter: it exits with code **49** and prints
+"No se encontró Python" / "Python was not found", and `where python` points at
+`...\WindowsApps\python.exe`. Do NOT keep retrying bare `python` against it.
+
+- **Detect:** if a bare `python`/`python3` call exits 49 (or its output mentions
+  "No se encontró" / "was not found" / `WindowsApps`), it is the Store stub.
+- **Fix:** install real Python 3.12+ (`winget install Python.Python.3.12`, or
+  python.org), then create the venv with the real interpreter and from then on
+  call the **venv interpreter by path** — `.venv\Scripts\python.exe` (Windows) /
+  `.venv/bin/python` (macOS/Linux) — never bare `python`.
+- **Encoding:** Windows defaults to a locale codepage (cp1252), which mangles
+  non-ASCII output into mojibake (`No se encontr�`). Force UTF-8 for every Python
+  call you run: set `PYTHONUTF8=1` (and `PYTHONIOENCODING=utf-8`) in the
+  environment so stdout/stderr and file I/O stay UTF-8.
 
 ## Stage 2: Exa MCP
 
@@ -54,20 +73,50 @@ Only run if lead-0 reports: node-pdf check failed.
 
 Only run if lead-0 reports: settings.json check failed.
 
-Write `.claude/settings.json` with baseline permissions:
+The repo SHIPS a complete `.claude/settings.json` whose `allow` list already
+pre-approves every command the earlier stages run — the OS-detection probes
+(`uname`, `where`/`which python`), the install commands
+(`brew install python|git|node`, `sudo apt install …`, `winget install …`),
+the venv + package setup (`python3 -m venv`, `.venv/bin/pip install …`), the
+Node/Playwright steps (`node --version`, `npm install`, `npx playwright install
+chromium`), and the Exa MCP step (`claude mcp …`). Because these are
+pre-approved, you run them with `Bash` WITHOUT the harness prompting the user
+for each one — that is the whole point of the shipped allowlist (T4-1). If a
+check fails, restore/repair `settings.json` to match the committed list; do not
+strip these entries.
+
+Two bootstrap installers can't be expressed as a literal allowlist pattern
+because they wrap a shell pipeline — the Homebrew bootstrap
+(`/bin/bash -c "$(curl -fsSL …install.sh)"`) and the NodeSource setup
+(`curl -fsSL …setup_20.x | sudo -E bash -`). If the harness prompts on one of
+THOSE two, that is the only sanctioned prompt in onboarding: explain what the
+command does and run it yourself once approved. Everything else must run
+prompt-free. You still NEVER hand any command back to the user to run by hand.
+
+Baseline `allow` list (keep in sync with the committed `.claude/settings.json`):
 
 ```json
 {
   "permissions": {
     "allow": [
       "Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch",
-      "Bash(mkdir *)", "Bash(python *)", "Bash(python3 *)",
+      "Bash(mkdir *)", "Bash(uname *)",
+      "Bash(where python*)", "Bash(which python*)",
+      "Bash(python *)", "Bash(python3 *)", "Bash(py -3 setup_wizard.py)",
       "Bash(.venv/bin/pip install *)", "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/pytest *)", "Bash(.venv/bin/board-aggregator *)",
+      "Bash(.venv\\Scripts\\python.exe *)",
       "Bash(git add *)", "Bash(git commit *)", "Bash(git worktree *)",
-      "Bash(git check-ignore *)", "Bash(ln -sfn *)",
+      "Bash(git check-ignore *)", "Bash(git --version)", "Bash(ln -sfn *)",
       "Bash(rm -rf research/runs/*)", "Bash(ls *)", "Bash(claude mcp *)",
-      "Bash(node *)", "Bash(npm *)", "Bash(npx *)",
+      "Bash(node --version)", "Bash(node *)",
+      "Bash(npm install)", "Bash(npm install *)",
+      "Bash(npx playwright install chromium)",
+      "Bash(brew --version)", "Bash(brew install python)",
+      "Bash(brew install git)", "Bash(brew install node)",
+      "Bash(sudo apt install python3.12)", "Bash(sudo apt install git)",
+      "Bash(sudo apt install -y nodejs)",
+      "Bash(winget install Python.Python.3.12)",
       "mcp__exa__*"
     ]
   }
@@ -89,7 +138,14 @@ Ask the user what materials they have. Ask all questions in one message:
 - "Any other links that show your work?"
 
 For each input provided:
-- Local file paths: read with Read tool
+- Local file paths ending in `.docx`: the Read tool CANNOT open binary Word files
+  — do NOT ask the user to paste the text. Extract it yourself via Bash with the
+  bundled helper (it uses python-docx, installed with `.[dev]`):
+  `.venv/bin/python -c "from board_aggregator.docx_utils import docx_to_text; print(docx_to_text(r'<path>'))"`
+  (use `.venv\Scripts\python.exe` on Windows). If extraction fails (file missing,
+  not a real .docx, python-docx absent), tell the user it couldn't be read and
+  fall back to the conversational interview below — never paste-shame the user.
+- Other local file paths (`.md`, `.txt`, `.pdf` text): read with Read tool
 - URLs: fetch with WebFetch tool
 
 ### Building the profile

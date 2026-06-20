@@ -19,7 +19,7 @@ That's it. On first run, `lead-0` detects missing setup and walks you through ev
 - Configuring Exa MCP for contact research
 - Building your skills inventory and resume from your existing materials (CV, portfolio, GitHub, LinkedIn)
 
-**Manual alternative:** `python setup_wizard.py` handles venv + deps + Exa MCP without the profile builder.
+**Manual alternative:** `python3 setup_wizard.py` handles venv + deps + Exa MCP without the profile builder. (On Windows, if bare `python` opens the Microsoft Store, use the real interpreter — see [Development](#development).)
 
 ## Claude Desktop & claude.ai
 
@@ -123,10 +123,17 @@ See `board_aggregator/scrapers/remoteok.py` for a minimal example.
 ```bash
 git clone https://github.com/0xQuinto/dossier.git
 cd dossier
-python -m venv .venv
+python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 .venv/bin/pytest
 ```
+
+> **Windows note:** bare `python` often resolves to the Microsoft Store stub,
+> which exits with code 49 and prints "Python was not found" instead of running.
+> Install real Python 3.12+ (`winget install Python.Python.3.12` or python.org),
+> create the venv with it, and call the venv interpreter by path
+> (`.venv\Scripts\python.exe`). Set `PYTHONUTF8=1` to avoid cp1252 mojibake in
+> localized (non-English) Windows shells.
 
 ## License
 
