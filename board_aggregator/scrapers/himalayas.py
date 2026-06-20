@@ -4,7 +4,7 @@ import requests as http_requests
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 BASE_URL = "https://himalayas.app"
 API_URL = f"{BASE_URL}/jobs/api"
@@ -25,6 +25,8 @@ class HimalayasScraper(BaseScraper):
     ) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         offset = 0
+        attempted = 0
+        skipped = 0
 
         for _ in range(max_pages):
             try:
@@ -44,23 +46,26 @@ class HimalayasScraper(BaseScraper):
                     break
 
                 for item in page_jobs:
-                    jobs.append(
-                        JobPosting(
-                            title=item.get("title", ""),
-                            company=item.get("companyName", ""),
-                            source=self.name,
-                            job_url=item.get("applicationLink", ""),
-                            location=", ".join(item.get("locationRestrictions", [])) or "Worldwide",
-                            is_remote=len(item.get("locationRestrictions", [])) == 0
-                            or is_remote,
-                            salary_min=item.get("minSalary"),
-                            salary_max=item.get("maxSalary"),
-                            salary_currency=item.get("currency") or "USD",
-                            date_posted=self._unix_to_date(item.get("pubDate")),
-                            job_type=item.get("employmentType"),
-                            description=item.get("excerpt"),
-                        )
+                    job = JobPosting.try_create(
+                        title=item.get("title", ""),
+                        company=item.get("companyName", ""),
+                        source=self.name,
+                        job_url=item.get("applicationLink", ""),
+                        location=", ".join(item.get("locationRestrictions", [])) or "Worldwide",
+                        is_remote=len(item.get("locationRestrictions", [])) == 0
+                        or is_remote,
+                        salary_min=item.get("minSalary"),
+                        salary_max=item.get("maxSalary"),
+                        salary_currency=item.get("currency") or "USD",
+                        date_posted=self._unix_to_date(item.get("pubDate")),
+                        job_type=item.get("employmentType"),
+                        description=item.get("excerpt"),
                     )
+                    attempted += 1
+                    if job is None:
+                        skipped += 1
+                        continue
+                    jobs.append(job)
 
                 total = data.get("totalCount", 0)
                 offset += MAX_LIMIT
@@ -71,6 +76,7 @@ class HimalayasScraper(BaseScraper):
                 print(f"[himalayas] Error: {e}")
                 break
 
+        report_skips(self.name, skipped, attempted)
         return jobs
 
     @staticmethod

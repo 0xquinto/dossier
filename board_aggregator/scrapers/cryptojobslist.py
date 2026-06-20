@@ -5,7 +5,7 @@ import requests as http_requests
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 BASE_URL = "https://cryptojobslist.com"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -25,6 +25,8 @@ class CryptoJobsListScraper(BaseScraper):
     def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen_ids: set[str] = set()
+        attempted = 0
+        skipped = 0
 
         for page_url in CATEGORY_PAGES:
             try:
@@ -74,21 +76,25 @@ class CryptoJobsListScraper(BaseScraper):
                     published_at = item.get("publishedAt", "")
                     date_posted = published_at[:10] if published_at else None
 
-                    jobs.append(
-                        JobPosting(
-                            title=item.get("jobTitle", ""),
-                            company=item.get("companyName", ""),
-                            source=self.name,
-                            job_url=job_url,
-                            location=item.get("jobLocation", "") or "Remote",
-                            is_remote=is_job_remote,
-                            salary_min=salary_min,
-                            salary_max=salary_max,
-                            salary_currency=salary_currency,
-                            date_posted=date_posted,
-                        )
+                    job = JobPosting.try_create(
+                        title=item.get("jobTitle", ""),
+                        company=item.get("companyName", ""),
+                        source=self.name,
+                        job_url=job_url,
+                        location=item.get("jobLocation", "") or "Remote",
+                        is_remote=is_job_remote,
+                        salary_min=salary_min,
+                        salary_max=salary_max,
+                        salary_currency=salary_currency,
+                        date_posted=date_posted,
                     )
+                    attempted += 1
+                    if job is None:
+                        skipped += 1
+                        continue
+                    jobs.append(job)
             except Exception as e:
                 print(f"[cryptojobslist] Error on {page_url}: {e}")
 
+        report_skips(self.name, skipped, attempted)
         return jobs
