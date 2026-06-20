@@ -17,6 +17,32 @@ DEFAULT_QUERIES = [
 DEFAULT_OUTPUT = Path("research/phase-1-scrape")
 
 
+def load_board_filter(portals_path):
+    """Read the optional per-user board allow/deny filter from portals.yml.
+
+    Returns (allowlist, denylist), each a list or None. Default (no portals
+    file, or no `boards:` section) is (None, None) = every board enabled, so
+    existing CLI usage is unaffected.
+    """
+    if not portals_path:
+        return None, None
+
+    import yaml
+
+    try:
+        data = yaml.safe_load(Path(portals_path).read_text()) or {}
+    except yaml.YAMLError as exc:
+        raise click.ClickException(f"Could not parse {portals_path}: {exc}")
+    if not isinstance(data, dict):
+        raise click.ClickException(
+            f"{portals_path} is not a valid portals file (expected a YAML mapping)"
+        )
+    boards = data.get("boards", {}) or {}
+    allowlist = boards.get("allow")
+    denylist = boards.get("deny")
+    return allowlist, denylist
+
+
 @click.command()
 @click.option(
     "-q", "--query",
@@ -74,16 +100,46 @@ def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrap
     import board_aggregator.scrapers.nocodejobs  # noqa: F401
     import board_aggregator.scrapers.eighty_thousand_hours  # noqa: F401
 
-    from board_aggregator.scrapers import SCRAPER_REGISTRY
+    from board_aggregator.scrapers import SCRAPER_REGISTRY, filter_scrapers
+
+    # Per-user board allow/deny filter from portals.yml (default: all enabled).
+    allowlist, denylist = load_board_filter(portals)
+    try:
+        enabled = filter_scrapers(sorted(SCRAPER_REGISTRY.keys()), allowlist, denylist)
+    except ValueError as exc:
+        raise click.ClickException(f"Invalid board filter in {portals}: {exc}")
 
     if list_scrapers:
         click.echo("Available scrapers:")
-        for name in sorted(SCRAPER_REGISTRY.keys()):
+        for name in enabled:
             click.echo(f"  - {name}")
         return
 
     queries = list(query) if query else DEFAULT_QUERIES
-    scraper_filter = list(scraper) if scraper else None
+    # Explicit -s narrows the run; otherwise honor the portals.yml board filter.
+    if scraper:
+        scraper_filter = [n for n in scraper if n in enabled]
+        if not scraper_filter:
+            # Every requested scraper is denied/disabled by the portals filter.
+            # An empty list now means "run zero boards" (C2), so refuse rather
+            # than silently scrape nothing.
+            raise click.ClickException(
+                f"No requested scrapers remain after the board filter: "
+                f"-s {' '.join(scraper)} intersects the enabled set to empty. "
+                f"Enabled: {', '.join(enabled) or '(none)'}."
+            )
+    elif allowlist or denylist:
+        scraper_filter = enabled
+        if not scraper_filter:
+            # The portals.yml board filter denied/excluded every available
+            # board. An empty list now means "run zero boards" (C2), so refuse
+            # rather than silently scrape nothing with no -s given.
+            raise click.ClickException(
+                f"No boards remain after the portals.yml board filter in {portals}: "
+                f"the allow/deny rules exclude every available scraper."
+            )
+    else:
+        scraper_filter = None
 
     click.echo(f"Running {len(queries)} queries across {'all' if not scraper_filter else len(scraper_filter)} scrapers")
     click.echo(f"Output: {output_dir}")
@@ -91,14 +147,26 @@ def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrap
     click.echo(f"Hours old: {hours_old}")
     click.echo("---")
 
-    jobs = run_all(
-        queries=queries,
-        output_dir=output_dir,
-        is_remote=remote_only,
-        scrapers=scraper_filter,
-        portals_path=portals,
-        hours_old=hours_old,
-    )
+    try:
+        jobs = run_all(
+            queries=queries,
+            output_dir=output_dir,
+            is_remote=remote_only,
+            scrapers=scraper_filter,
+            portals_path=portals,
+            hours_old=hours_old,
+        )
+    except FileExistsError as exc:
+        # Write-once guard tripped (a second run into the same dir). Surface the
+        # guidance as a clean CLI error, not a traceback.
+        raise click.ClickException(str(exc))
+    except OSError as exc:
+        # A locked/unwritable output file (e.g. all-postings.csv open in Excel on
+        # Windows) exhausts atomic_write_text's retries and raises a bare OSError
+        # whose message is already user-ready. Surface it cleanly, not as a
+        # traceback. (FileExistsError is an OSError subclass, so it is caught
+        # above first.)
+        raise click.ClickException(str(exc))
 
     click.echo(f"\nDone! {len(jobs)} unique postings written to {output_dir}/")
 
