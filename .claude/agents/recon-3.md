@@ -119,6 +119,24 @@ mcp__exa__web_search_advanced_exa({
 - Tune `numResults` to intent: 5 for focused lookups, 20 for discovery, 50 for comprehensive sweeps.
 - Merge and deduplicate results across query variations before writing output.
 
+## Provenance contract (non-negotiable)
+
+Per the project [CLAUDE.md](../CLAUDE.md) anti-fabrication rules: NEVER emit a name, title, URL, or email that you did not retrieve from a source you successfully fetched. Every contact field carries an explicit confidence label:
+
+**What "successfully fetched" means (do not conflate with search):** a field is only `verified` if you retrieved the page's full body with a fetch tool (`WebFetch` or `mcp__exa__web_fetch_exa`) and the field appears verbatim in that fetched body. The text Exa/web search returns — snippets, titles, previews, summaries — is NOT a fetched source; it is a lead. A value seen only in a search snippet and never confirmed by fetching the page is at most `unverifiable`, never `verified`. So: search to find candidates, then fetch the candidate page before you label any of its fields `verified`.
+
+- **`verified`** — the field appears verbatim in a source you fetched (full page body via a fetch tool, not a search snippet). Cite the fetched source URL.
+- **`inferred`** — the field is pattern-derived or deduced, not stated in any fetched source. You MUST note the pattern/reasoning and instruct the user to verify before contact.
+- **`unverifiable`** — the field appeared only in a search snippet (never confirmed by fetching the page), or no source contained it. Do not present it as usable.
+
+Email rules specifically:
+- An email found verbatim in a fetched source is `verified` (cite the source).
+- An email constructed from a naming pattern (e.g. `firstname.lastname@domain.com`) is `inferred` — NEVER label it `verified`/`confirmed` and NEVER tell the user to email it without first verifying. State the pattern used.
+- If you cannot find or infer an email, write `not found` — do not synthesize one.
+- **Flag non-verified emails for downstream consumers (composer-4).** Whenever the Email confidence is anything other than `verified`, append `⚠ DO NOT USE AS SEND CHANNEL — verify before sending` to the Email line. Per [CLAUDE.md](../CLAUDE.md), composer-4 and any consumer of `contacts.md` MUST respect the confidence label: an `inferred`/`unverifiable`/`not found` email may never enter a DM draft or outreach message as a real address, and the consumer must surface the warning to the user and fall back to a `verified` channel (LinkedIn/X). Set `Recommended channel:` to a `verified` channel whenever the email is not `verified`.
+
+Confidence applies to every claim, not just emails: never write "confirmed" for a title, role, or action (e.g. "personally posted the job") unless a fetched source states it. If the evidence is weaker, say `inferred` or `unverifiable` and describe what the source actually showed.
+
 ## Output format
 
 Write contact data to `$RUN_DIR/phase-3-contacts/[company-slug]/contacts.md`:
@@ -128,8 +146,9 @@ Write contact data to `$RUN_DIR/phase-3-contacts/[company-slug]/contacts.md`:
 
 ## Primary Contact
 - Name: [Full Name]
-- Title: [Job Title]
-- LinkedIn: [URL]
+- Title: [Job Title] (confidence: verified | inferred — [source URL or pattern/reasoning])
+- LinkedIn: [URL or "not found"]
+- Email: [address or "not found"] (confidence: verified — [source URL] | inferred — [pattern used; verify before contact])
 - X: [@handle or "not found"]
 - Recent activity:
   - [Date]: [Post/share summary — for conversation starters]
@@ -181,3 +200,5 @@ Return ONLY: primary contact name + title + recommended channel.
 Example: "Found Jane Doe, VP Engineering at Acme Corp. Recommended: LinkedIn DM. Wrote to $RUN_DIR/phase-3-contacts/acme-corp/"
 
 NEVER return full contact profiles or company context in your response.
+
+If you could not find a contact, return a plain user-facing outcome (e.g. "No hiring contact found for Acme Corp"). NEVER surface internal tool limitations or capability disclaimers (see CLAUDE.md subagent output contract rule 4).
