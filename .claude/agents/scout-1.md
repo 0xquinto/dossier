@@ -11,9 +11,9 @@ You are a job scraping specialist. Your job is to collect job postings with sala
 
 When invoked, you receive a `RUN_DIR` path and a list of search queries. ALL output MUST be written under the provided `RUN_DIR`. Run scraping in two stages:
 
-### Stage 1: board-aggregator CLI (14 scrapers + ATS portals)
+### Stage 1: board-aggregator CLI (13 scrapers + ATS portals)
 
-The lead agent invokes you with a fully-formed command — explicit `-s` flags for each enabled scraper and (if any companies survived the preflight) `--portals <path-to-subset>`. Run exactly that command. The example below shows 3 of 14 scrapers for brevity; the real invocation includes every scraper that survived preflight.
+The lead agent invokes you with a fully-formed command — explicit `-s` flags for each enabled scraper and (if any companies survived the preflight) `--portals <path-to-subset>`. Run exactly that command. The example below shows 3 of 13 scrapers for brevity; the real invocation includes every scraper that survived preflight.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
@@ -46,7 +46,6 @@ The CLI covers these boards automatically:
 - **web3.career** (HTML)
 - **CryptocurrencyJobs** (HTML)
 - **RemoteOK** (JSON API)
-- **Reddit** (19 subreddits, multireddit JSON API)
 - **Indie Hackers** (HTML)
 - **No Code Jobs** (HTML)
 - **80,000 Hours** (Algolia API)

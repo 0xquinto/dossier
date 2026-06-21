@@ -1,6 +1,6 @@
 # dossier
 
-Agent pipeline that scrapes 14 job boards plus your ICP companies' ATS portals (Greenhouse / Ashby / Lever), scores postings against your skills, finds hiring managers, and drafts personalized pitches. Anti-mass-apply.
+Agent pipeline that scrapes 13 job boards plus your ICP companies' ATS portals (Greenhouse / Ashby / Lever), scores postings against your skills, finds hiring managers, and drafts personalized pitches. Anti-mass-apply.
 
 ## Quick Start
 
@@ -39,7 +39,7 @@ Docs: [sub-agents (CLI-only)](https://code.claude.com/docs/en/sub-agents) · [Cl
 ## How the pipeline works
 
 ```
-Phase 1 — Scrape       scout-1 runs board-aggregator CLI across 14 boards + ATS portal scan of your ICP companies
+Phase 1 — Scrape       scout-1 runs board-aggregator CLI across 13 boards + ATS portal scan of your ICP companies
 Phase 2 — Rank         ranker-7 scores each posting against your skills inventory
 Phase 3 — Research     recon-3 finds hiring managers via Exa (parallel per company)
 Phase 4 — Pitch        (optional) scripter-11 drafts the video pitch, then composer-4 produces DM drafts + STAR+R stories — skipped by default, offered after the other phases finish
@@ -48,7 +48,7 @@ Phase 4 — Pitch        (optional) scripter-11 drafts the video pitch, then com
 The pipeline orchestrator (`lead-0`) runs phases sequentially. Phase 3 spawns one subagent per company in parallel. **Phase 4 is optional** — skipped by default and offered once the other phases finish.
 
 **Two scrape sources, one merged feed:**
-- **Generic boards** — 14 public boards (Indeed, LinkedIn, RemoteOK, Himalayas, HN, crypto/web3 boards, 80,000 Hours, …) — wide net, noisy.
+- **Generic boards** — 13 public boards (Indeed, LinkedIn, RemoteOK, Himalayas, HN, crypto/web3 boards, 80,000 Hours, …) — wide net, noisy.
 - **Per-company ATS portals** — direct hits to Greenhouse / Ashby / Lever public APIs for the companies in `portals.yml` — narrow, high-signal. No auth needed. Scout-1 marks portals inactive after 30 days with no openings; `discoverer-6` adds new ones.
 
 **Portal discovery:** If `portals.yml` is missing or has no active companies, `lead-0` offers to run `discoverer-6` to auto-discover companies matching your skills-inventory and populate it before Phase 1. You can also run `discoverer-6` standalone anytime to expand the list.
@@ -87,7 +87,7 @@ graph TB
 
     subgraph Scraper["board-aggregator CLI"]
         CLI[Click CLI]
-        Scrapers["14 scrapers<br/>(generic boards)"]
+        Scrapers["13 scrapers<br/>(generic boards)"]
         PortalScanner["portal_scanner<br/>Greenhouse / Ashby / Lever"]
         PortalsYml[("portals.yml<br/>ICP companies")]
     end

@@ -120,8 +120,8 @@ def test_lead_0_phase2_reads_compact_index():
 def test_lead_0_preflight_lists_80000hours():
     text = _lead_0()
     assert "80000hours" in text
-    # The list is the full 14 registered scrapers.
-    assert "14" in text
+    # The list is the full 13 registered scrapers (reddit removed).
+    assert "13" in text
 
 
 # --- T1-2 / T1-1: scout-1 never synthesizes roles or URLs from unfetched pages ---

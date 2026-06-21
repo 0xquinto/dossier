@@ -23,15 +23,15 @@ def test_filter_no_config_returns_everything_unchanged():
 
 
 def test_filter_denylist_drops_named_boards():
-    names = ["80000hours", "himalayas", "crypto_jobs", "web3career", "reddit"]
+    names = ["80000hours", "himalayas", "crypto_jobs", "web3career", "remoteok"]
     result = filter_scrapers(names, denylist=["crypto_jobs", "web3career"])
-    assert result == ["80000hours", "himalayas", "reddit"]
+    assert result == ["80000hours", "himalayas", "remoteok"]
 
 
 def test_filter_allowlist_restricts_to_named_boards():
-    names = ["80000hours", "himalayas", "crypto_jobs", "reddit"]
-    result = filter_scrapers(names, allowlist=["80000hours", "reddit"])
-    assert result == ["80000hours", "reddit"]
+    names = ["80000hours", "himalayas", "crypto_jobs", "remoteok"]
+    result = filter_scrapers(names, allowlist=["80000hours", "remoteok"])
+    assert result == ["80000hours", "remoteok"]
 
 
 def test_filter_allow_then_deny_compose():

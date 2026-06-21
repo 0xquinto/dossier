@@ -60,10 +60,10 @@ After the readiness check passes, infer the candidate's archetype from `skills-i
 This drives a **soft, recommended** board default — never a hard exclusion. The default scraper fleet (himalayas, weworkremotely, remoteok, and the 4 crypto boards) is remote-tech-skewed and tends to mis-rank an exec/non-tech candidate (the first-run session ranked 90% of such results C-tier). So:
 
 - For an **exec / non-tech** archetype, the *recommended* default is `jobspy` plus the ATS/portal companies (and Exa portal fetches), with the remote-tech and crypto boards recommended OFF.
-- For a **tech** archetype, the recommended default is all 14 scrapers.
-- For **mixed / unclear**, recommend all 14 but flag the remote-tech skew.
+- For a **tech** archetype, the recommended default is all 13 scrapers.
+- For **mixed / unclear**, recommend all 13 but flag the remote-tech skew.
 
-You will surface this recommendation in the Phase 1 Preflight (below) and let the user override it. NEVER silently drop a board: always show the full list of 14, mark which are recommended on/off for the inferred archetype, and honor the user's reply — if they say "go" they get your recommended defaults; if they say "add the crypto boards back" or "run all", you include them. The recommendation is advice; the user decides.
+You will surface this recommendation in the Phase 1 Preflight (below) and let the user override it. NEVER silently drop a board: always show the full list of 13, mark which are recommended on/off for the inferred archetype, and honor the user's reply — if they say "go" they get your recommended defaults; if they say "add the crypto boards back" or "run all", you include them. The recommendation is advice; the user decides.
 
 Record the inferred archetype so ranker-7 can use it: when you write the `phase_1` block to `meta.json` (Preflight Step 7), include `"candidate_archetype": "<exec|tech|mixed>"`.
 
@@ -124,7 +124,7 @@ Before spawning scout-1, you MUST show the user exactly what will be scraped and
 
 ### Step 1: Build the scraper list
 
-The pipeline has 14 registered scrapers. Use this list verbatim in the preview:
+The pipeline has 13 registered scrapers. Use this list verbatim in the preview:
 
 | Name | Description |
 |---|---|
@@ -138,7 +138,6 @@ The pipeline has 14 registered scrapers. Use this list verbatim in the preview:
 | `web3career` | web3.career (HTML) |
 | `cryptocurrencyjobs` | CryptocurrencyJobs (HTML) |
 | `remoteok` | RemoteOK (JSON API) |
-| `reddit` | 19 job-related subreddits (multireddit JSON) |
 | `indiehackers` | Indie Hackers job board (Algolia API) |
 | `nocodejobs` | No Code Jobs (HTML) |
 | `80000hours` | 80,000 Hours high-impact / EA roles (Algolia API) |
@@ -151,7 +150,7 @@ If `portals.yml` does not exist OR has zero `active: true` entries, skip the por
 
 ### Step 3: Render the preview
 
-Print this format to the user (verbatim — no embellishment). Apply the **soft archetype recommendation** from the Candidate Archetype step: for an exec/non-tech candidate the previewed defaults are `jobspy` + portals with the remote-tech and crypto boards marked recommended-OFF; for a tech candidate all 14 are on. Mark each scraper `(recommended)` or `(off — remote-tech skew for your profile)` so the user sees the reasoning, and add the archetype line. Never remove a board from the preview — the user can always override:
+Print this format to the user (verbatim — no embellishment). Apply the **soft archetype recommendation** from the Candidate Archetype step: for an exec/non-tech candidate the previewed defaults are `jobspy` + portals with the remote-tech and crypto boards marked recommended-OFF; for a tech candidate all 13 are on. Mark each scraper `(recommended)` or `(off — remote-tech skew for your profile)` so the user sees the reasoning, and add the archetype line. Never remove a board from the preview — the user can always override:
 
 ```
 Inferred archetype: <exec/non-tech | tech | mixed>. Board defaults below are a
@@ -159,9 +158,9 @@ recommendation for that profile — 'go' accepts them, or add any board back.
 
 Phase 1 will scrape the following.
 Reply 'go' to run the recommended defaults, or describe what to skip/keep/add
-(e.g. "add the crypto boards back", "run all 14", "only companies with icp >= 8").
+(e.g. "add the crypto boards back", "run all 13", "only companies with icp >= 8").
 
-Scrapers (14):
+Scrapers (13):
   • jobspy             — Indeed + LinkedIn
   • himalayas          — remote-first board
   • weworkremotely     — RSS
@@ -172,7 +171,6 @@ Scrapers (14):
   • web3career         — web3.career
   • cryptocurrencyjobs — HTML
   • remoteok           — RemoteOK JSON
-  • reddit             — 19 job-related subreddits
   • indiehackers       — Indie Hackers job board
   • nocodejobs         — No Code Jobs
   • 80000hours         — 80,000 Hours high-impact / EA roles
@@ -192,9 +190,9 @@ If `portals.yml` is missing or has no active entries, omit the "Portal companies
 
 You are an Opus model — natural-language parsing is your native mode. The reply may:
 
-- Be `go`, `yes`, `run it`, or empty → use the **recommended defaults** as previewed (for an exec/non-tech archetype this means the recommended-ON subset, NOT all 14)
-- Add boards back ("add the crypto boards back", "run all 14", "include remoteok") → turn the named recommended-OFF boards back ON. The user always wins over the recommendation.
-- Name scrapers to drop ("skip reddit and the crypto boards") → drop matches
+- Be `go`, `yes`, `run it`, or empty → use the **recommended defaults** as previewed (for an exec/non-tech archetype this means the recommended-ON subset, NOT all 13)
+- Add boards back ("add the crypto boards back", "run all 13", "include remoteok") → turn the named recommended-OFF boards back ON. The user always wins over the recommendation.
+- Name scrapers to drop ("skip remoteok and the crypto boards") → drop matches
 - Filter portals by score ("only companies with icp_fit_score >= 8") → keep only those
 - Name companies to drop or keep ("skip Ramp and Cohere", "only Anthropic and Mistral")
 - Combine multiple instructions in one reply
@@ -208,7 +206,7 @@ If the reply names a scraper that doesn't exist (e.g. "skip foobar"), tell the u
 ### Step 5: Compute effective subsets
 
 Produce two lists:
-- `effective_scrapers`: subset of the 14 scraper names
+- `effective_scrapers`: subset of the 13 scraper names
 - `effective_companies`: subset of the active portal entries (full objects with all fields)
 
 Edge cases:
@@ -239,7 +237,7 @@ Append a `phase_1` block to `$RUN_DIR/meta.json` BEFORE spawning scout-1 (so the
     "candidate_archetype": "exec",
     "selected_scrapers": ["jobspy", "himalayas", ...],
     "selected_companies": ["anthropic", "ramp", ...],
-    "user_filter_reply": "skip reddit, only icp >= 8"
+    "user_filter_reply": "skip remoteok, only icp >= 8"
   },
   "phases": {}
 }

@@ -246,8 +246,8 @@ def test_try_create_skips_invalid_without_raising():
         JobPosting.try_create(
             title="AI Engineer",
             company="Acme Corp",
-            source="reddit_jobs",
-            job_url="https://reddit.com/r/forhire/comments/abc",
+            source="himalayas",
+            job_url="https://himalayas.app/jobs/ai-engineer-acme",
         )
         is not None
     )
