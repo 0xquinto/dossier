@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 FEED_URL = "https://crypto.jobs/feed/rss"
 
@@ -16,6 +16,8 @@ class CryptoJobsScraper(BaseScraper):
 
     def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
+        attempted = 0
+        skipped = 0
         try:
             feed = feedparser.parse(FEED_URL)
             for entry in feed.entries:
@@ -36,22 +38,26 @@ class CryptoJobsScraper(BaseScraper):
                 location = fields.get("Location", "")
                 job_type = fields.get("Type", "")
 
-                jobs.append(
-                    JobPosting(
-                        title=title,
-                        company=company,
-                        source=self.name,
-                        job_url=job_url,
-                        location=location,
-                        is_remote="remote" in location.lower(),
-                        date_posted=entry.get("published", ""),
-                        job_type=job_type,
-                        description=desc_html[:500],
-                    )
+                job = JobPosting.try_create(
+                    title=title,
+                    company=company,
+                    source=self.name,
+                    job_url=job_url,
+                    location=location,
+                    is_remote="remote" in location.lower(),
+                    date_posted=entry.get("published", ""),
+                    job_type=job_type,
+                    description=desc_html[:500],
                 )
+                attempted += 1
+                if job is None:
+                    skipped += 1
+                    continue
+                jobs.append(job)
         except Exception as e:
             print(f"[crypto_jobs] Error: {e}")
 
+        report_skips(self.name, skipped, attempted)
         return jobs
 
     @staticmethod

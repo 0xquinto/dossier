@@ -2,7 +2,7 @@ import feedparser
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 FEED_URLS = [
     "https://weworkremotely.com/remote-jobs.rss",
@@ -20,6 +20,8 @@ class WeWorkRemotelyScraper(BaseScraper):
     def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen_urls: set[str] = set()
+        attempted = 0
+        skipped = 0
 
         for feed_url in FEED_URLS:
             try:
@@ -37,22 +39,26 @@ class WeWorkRemotelyScraper(BaseScraper):
                     region = entry.get("region", "")
                     job_type = entry.get("type", "")
 
-                    jobs.append(
-                        JobPosting(
-                            title=title,
-                            company=company,
-                            source=self.name,
-                            job_url=url,
-                            location=region or "Remote",
-                            is_remote=True,
-                            date_posted=entry.get("published", ""),
-                            job_type=job_type,
-                            description=entry.get("summary", ""),
-                        )
+                    job = JobPosting.try_create(
+                        title=title,
+                        company=company,
+                        source=self.name,
+                        job_url=url,
+                        location=region or "Remote",
+                        is_remote=True,
+                        date_posted=entry.get("published", ""),
+                        job_type=job_type,
+                        description=entry.get("summary", ""),
                     )
+                    attempted += 1
+                    if job is None:
+                        skipped += 1
+                        continue
+                    jobs.append(job)
             except Exception as e:
                 print(f"[weworkremotely] Error fetching {feed_url}: {e}")
 
+        report_skips(self.name, skipped, attempted)
         return jobs
 
     @staticmethod

@@ -1,4 +1,6 @@
+import os
 import re
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -6,9 +8,11 @@ import requests as http_requests
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 LISTING_URL = "https://www.reddit.com/r/{subs}/new.json"
+OAUTH_LISTING_URL = "https://oauth.reddit.com/r/{subs}/new"
+TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 USER_AGENT = "board-aggregator/1.0 (job-research-pipeline)"
 
 MAX_RETRIES = 3
@@ -39,16 +43,58 @@ class RedditJobsScraper(BaseScraper):
     def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         raw_posts = self._fetch_listings()
         jobs: list[JobPosting] = []
+        # Count only postings that passed the editorial filters but failed
+        # try_create (invalid/empty job_url) — not the filter-skips above it.
+        self._attempted = 0
+        self._skipped = 0
         for post in raw_posts:
             parsed = self._parse_post(post)
             if parsed:
                 jobs.append(parsed)
+        report_skips(self.name, self._skipped, self._attempted)
         return jobs
 
+    def _get_oauth_token(self, client_id: str, client_secret: str) -> str | None:
+        """Reddit script-app client-credentials flow. Returns a bearer token or None."""
+        try:
+            resp = http_requests.post(
+                TOKEN_URL,
+                auth=(client_id, client_secret),
+                data={"grant_type": "client_credentials"},
+                headers={"User-Agent": USER_AGENT},
+                timeout=30,
+            )
+            if resp.status_code != 200:
+                print(
+                    f"[reddit] OAuth token request returned {resp.status_code} — "
+                    "check REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET",
+                    file=sys.stderr,
+                )
+                return None
+            token = resp.json().get("access_token")
+            if not token:
+                print("[reddit] OAuth token response missing access_token", file=sys.stderr)
+                return None
+            return token
+        except Exception as e:
+            print(f"[reddit] OAuth token request failed: {e}", file=sys.stderr)
+            return None
+
     def _fetch_listings(self) -> list[dict]:
-        headers = {"User-Agent": USER_AGENT}
         subs = "+".join(ALL_SUBS)
-        url = LISTING_URL.format(subs=subs)
+
+        # Optional OAuth: only when BOTH credentials are present.
+        client_id = os.getenv("REDDIT_CLIENT_ID")
+        client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+        headers = {"User-Agent": USER_AGENT}
+        if client_id and client_secret:
+            token = self._get_oauth_token(client_id, client_secret)
+            if not token:
+                return []
+            headers["Authorization"] = f"bearer {token}"
+            url = OAUTH_LISTING_URL.format(subs=subs)
+        else:
+            url = LISTING_URL.format(subs=subs)
 
         all_posts: list[dict] = []
         after: str | None = None
@@ -68,11 +114,45 @@ class RedditJobsScraper(BaseScraper):
                         print(f"[reddit] Rate limited, waiting {wait}s (attempt {attempt + 1}/{MAX_RETRIES})")
                         time.sleep(wait)
                         continue
+                    if resp.status_code == 403:
+                        print(
+                            "[reddit] 403 Forbidden — Reddit now blocks anonymous JSON "
+                            "access. Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to "
+                            "enable OAuth, or remove 'reddit' from your boards.",
+                            file=sys.stderr,
+                        )
+                        return all_posts
                     if resp.status_code != 200:
-                        print(f"[reddit] Listing returned {resp.status_code}, stopping")
+                        print(
+                            f"[reddit] Listing returned HTTP {resp.status_code} — "
+                            "no postings retrieved. If this persists, set "
+                            "REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET to enable OAuth, "
+                            "or remove 'reddit' from your boards.",
+                            file=sys.stderr,
+                        )
                         return all_posts
 
-                    data = resp.json().get("data", {})
+                    try:
+                        payload = resp.json()
+                    except ValueError:
+                        print(
+                            "[reddit] Listing did not return JSON (likely an HTML block "
+                            "page) — no postings retrieved. Set REDDIT_CLIENT_ID and "
+                            "REDDIT_CLIENT_SECRET to enable OAuth, or remove 'reddit' "
+                            "from your boards.",
+                            file=sys.stderr,
+                        )
+                        return all_posts
+                    if not isinstance(payload, dict) or "data" not in payload:
+                        print(
+                            "[reddit] Listing JSON is not the expected "
+                            "{data:{children}} shape — no postings retrieved. Reddit may "
+                            "have changed its API or blocked this request.",
+                            file=sys.stderr,
+                        )
+                        return all_posts
+
+                    data = payload.get("data", {})
                     children = data.get("children", [])
                     all_posts.extend(child.get("data", {}) for child in children)
                     after = data.get("after")
@@ -91,13 +171,22 @@ class RedditJobsScraper(BaseScraper):
         return all_posts
 
     def _parse_post(self, post: dict) -> JobPosting | None:
-        title = post.get("title", "")
-        selftext = post.get("selftext", "")
+        # Coalesce None to "" for every string field: Reddit can send an explicit
+        # null (e.g. removed/edited posts), and .get(k, "") only defaults on a
+        # MISSING key, not a present-but-None value. Without this, a null title or
+        # subreddit crashes re.search()/.lower() below — violating the never-crash
+        # contract.
+        title = post.get("title") or ""
+        selftext = post.get("selftext") or ""
         author = post.get("author") or ""
-        subreddit = post.get("subreddit", "")
+        subreddit = post.get("subreddit") or ""
         flair = post.get("link_flair_text") or ""
 
         # Skip rules
+        # A titleless post carries no job signal (and the model accepts "" titles,
+        # so try_create would NOT reject it) — drop it explicitly.
+        if not title.strip():
+            return None
         if author in ("AutoModerator", "[deleted]"):
             return None
         if selftext in ("[removed]", "[deleted]"):
@@ -132,7 +221,9 @@ class RedditJobsScraper(BaseScraper):
         permalink = post.get("permalink", "")
         job_url = f"https://reddit.com{permalink}" if permalink else ""
 
-        return JobPosting(
+        # This post passed the editorial filters: it's a try_create candidate.
+        self._attempted = getattr(self, "_attempted", 0) + 1
+        posting = JobPosting.try_create(
             title=title,
             company=company,
             source=self.name,
@@ -144,6 +235,9 @@ class RedditJobsScraper(BaseScraper):
             date_posted=date_posted,
             description=selftext[:500] if selftext else None,
         )
+        if posting is None:
+            self._skipped = getattr(self, "_skipped", 0) + 1
+        return posting
 
     def _extract_company(self, title: str, subreddit: str) -> str:
         # 1. Pipe-separated: "[Tag] Role | Company | Location"

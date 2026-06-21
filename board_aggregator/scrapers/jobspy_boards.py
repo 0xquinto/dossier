@@ -4,7 +4,7 @@ from jobspy import scrape_jobs
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 
 @register
@@ -20,6 +20,8 @@ class JobSpyScraper(BaseScraper):
         country_indeed: str = "worldwide",
     ) -> list[JobPosting]:
         jobs: list[JobPosting] = []
+        attempted = 0
+        skipped = 0
 
         for query in queries:
             try:
@@ -35,26 +37,30 @@ class JobSpyScraper(BaseScraper):
                 )
 
                 for _, row in df.iterrows():
-                    jobs.append(
-                        JobPosting(
-                            title=row.get("title", ""),
-                            company=row.get("company", ""),
-                            source=str(row.get("site", "jobspy")),
-                            job_url=str(row.get("job_url", "")),
-                            location=str(row.get("location", "")),
-                            is_remote=bool(row.get("is_remote", True)),
-                            salary_min=self._safe_float(row.get("min_amount")),
-                            salary_max=self._safe_float(row.get("max_amount")),
-                            salary_currency=str(row.get("currency", "USD")),
-                            salary_interval=str(row.get("interval", "yearly")),
-                            date_posted=str(row.get("date_posted", "")),
-                            job_type=str(row.get("job_type", "")),
-                            description=str(row.get("description", ""))[:500],
-                        )
+                    job = JobPosting.try_create(
+                        title=row.get("title", ""),
+                        company=row.get("company", ""),
+                        source=str(row.get("site", "jobspy")),
+                        job_url=str(row.get("job_url", "")),
+                        location=str(row.get("location", "")),
+                        is_remote=bool(row.get("is_remote", True)),
+                        salary_min=self._safe_float(row.get("min_amount")),
+                        salary_max=self._safe_float(row.get("max_amount")),
+                        salary_currency=str(row.get("currency", "USD")),
+                        salary_interval=str(row.get("interval", "yearly")),
+                        date_posted=str(row.get("date_posted", "")),
+                        job_type=str(row.get("job_type", "")),
+                        description=str(row.get("description", ""))[:500],
                     )
+                    attempted += 1
+                    if job is None:
+                        skipped += 1
+                        continue
+                    jobs.append(job)
             except Exception as e:
                 print(f"[jobspy] Error on query '{query}': {e}")
 
+        report_skips(self.name, skipped, attempted)
         return jobs
 
     @staticmethod

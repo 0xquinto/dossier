@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 BASE_URL = "https://cryptocurrencyjobs.co"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -26,6 +26,8 @@ class CryptocurrencyJobsScraper(BaseScraper):
     def scrape(self, queries: list[str], is_remote: bool = True, hours_old: int = 168) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen_urls: set[str] = set()
+        attempted = 0
+        skipped = 0
 
         for page_url in CATEGORY_PAGES:
             try:
@@ -79,21 +81,25 @@ class CryptocurrencyJobsScraper(BaseScraper):
                             salary_min, salary_max = self._parse_salary(text)
                             break
 
-                    jobs.append(
-                        JobPosting(
-                            title=title,
-                            company=company,
-                            source=self.name,
-                            job_url=job_url,
-                            location=location,
-                            is_remote=is_job_remote,
-                            salary_min=salary_min,
-                            salary_max=salary_max,
-                        )
+                    job = JobPosting.try_create(
+                        title=title,
+                        company=company,
+                        source=self.name,
+                        job_url=job_url,
+                        location=location,
+                        is_remote=is_job_remote,
+                        salary_min=salary_min,
+                        salary_max=salary_max,
                     )
+                    attempted += 1
+                    if job is None:
+                        skipped += 1
+                        continue
+                    jobs.append(job)
             except Exception as e:
                 print(f"[cryptocurrencyjobs] Error on {page_url}: {e}")
 
+        report_skips(self.name, skipped, attempted)
         return jobs
 
     @staticmethod

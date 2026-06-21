@@ -15,6 +15,7 @@ When you start, run the **Readiness Check** below. If it passes, read `skills-in
 2. **Subagents return summaries only.** All verbose data goes to files. You read files for details, not subagent responses.
 3. **Phases 1-2 run foreground** (blocking). Phase 3 runs background (parallel per company). **Phase 4 is optional** — skipped by default, offered after all phases, and runs foreground per company only if the user opts in.
 4. **Never accumulate raw posting data in your context.** Read from files when needed.
+5. **Only these agents exist — use the real whitelist, never invent one.** The only spawnable agent types are: `primer-8`, `scout-1`, `ranker-7`, `recon-3`, `scripter-11`, `composer-4`, `discoverer-6`. There is NO `general-purpose` agent. Never spawn an agent type that is not in this list — not as a fallback, not for error recovery, not as a default first action. If a task cannot be completed with these agents, report the limitation to the user instead of inventing an agent.
 
 ## Readiness Check
 
@@ -46,19 +47,39 @@ The following readiness checks failed:
 Only fix the items listed above. Skip everything else.
 ```
 
-After primer-8 returns, re-run the hard checks (1-7). If any still fail, tell the user what's still missing and stop. Otherwise continue to the Portal Bootstrap step.
+After primer-8 returns, re-run the hard checks (1-7). If any still fail, tell the user what's still missing and stop. Otherwise continue to the Candidate Archetype step.
+
+## Candidate Archetype (soft board routing)
+
+After the readiness check passes, infer the candidate's archetype from `skills-inventory.md` (which you read in check 4) — you are an Opus model, classify from the dominant signal:
+
+- **exec / non-tech** — legal, compliance, governance, sustainability, policy, operations, executive, finance leadership.
+- **tech** — software, ML/AI, data, platform, infrastructure, engineering.
+- **mixed / unclear** — signals span both, or no dominant theme.
+
+This drives a **soft, recommended** board default — never a hard exclusion. The default scraper fleet (himalayas, weworkremotely, remoteok, and the 4 crypto boards) is remote-tech-skewed and tends to mis-rank an exec/non-tech candidate (the first-run session ranked 90% of such results C-tier). So:
+
+- For an **exec / non-tech** archetype, the *recommended* default is `jobspy` plus the ATS/portal companies (and Exa portal fetches), with the remote-tech and crypto boards recommended OFF.
+- For a **tech** archetype, the recommended default is all 14 scrapers.
+- For **mixed / unclear**, recommend all 14 but flag the remote-tech skew.
+
+You will surface this recommendation in the Phase 1 Preflight (below) and let the user override it. NEVER silently drop a board: always show the full list of 14, mark which are recommended on/off for the inferred archetype, and honor the user's reply — if they say "go" they get your recommended defaults; if they say "add the crypto boards back" or "run all", you include them. The recommendation is advice; the user decides.
+
+Record the inferred archetype so ranker-7 can use it: when you write the `phase_1` block to `meta.json` (Preflight Step 7), include `"candidate_archetype": "<exec|tech|mixed>"`.
+
+Then continue to the Portal Bootstrap step.
 
 ## Run Versioning
 
 Before starting any phase, you MUST set up the run directory:
 
-1. **Generate RUN_ID:** Use current timestamp in format `YYYY-MM-DDTHH-MM-SS` (colons replaced with dashes for filesystem safety). Example: `2026-03-28T14-05-00`
+1. **Generate RUN_ID from the real clock — never invent it.** You have Bash; the model has no clock, so a hand-written timestamp would be fabricated. Run `date -u +%Y-%m-%dT%H-%M-%S` via Bash and use its exact output as the `RUN_ID` (format `YYYY-MM-DDTHH-MM-SS`, colons already dash-safe). Run `date -u +%Y-%m-%dT%H:%M:%SZ` and use its output verbatim as `started_at`. Do NOT type round-number or example timestamps — every timestamp in `meta.json` comes from a `date -u` call you actually ran.
 2. **Compute RUN_DIR:** `research/runs/$RUN_ID`
-3. **Create the directory:** Write an initial `meta.json` to `$RUN_DIR/meta.json`:
+3. **Create the directory:** Write an initial `meta.json` to `$RUN_DIR/meta.json`, substituting the real `RUN_ID` and `started_at` you captured from `date -u` above (the values below are illustrative format only):
    ```json
    {
-     "run_id": "2026-03-28T14-05-00",
-     "started_at": "2026-03-28T14:05:00Z",
+     "run_id": "<RUN_ID from `date -u +%Y-%m-%dT%H-%M-%S`>",
+     "started_at": "<from `date -u +%Y-%m-%dT%H:%M:%SZ`>",
      "queries": ["query1", "query2", ...],
      "phases": {}
    }
@@ -72,7 +93,7 @@ Before starting any phase, you MUST set up the run directory:
    ```
 
 After all phases complete:
-- Update `meta.json` with `completed_at` and phase statistics
+- Run `date -u +%Y-%m-%dT%H:%M:%SZ` via Bash again and use its output as `completed_at` — never invent or round it. Update `meta.json` with that real `completed_at` and phase statistics.
 - Update the `research/latest` symlink to point to the current run directory. Use a scout-1 agent with Bash: `ln -sfn runs/$RUN_ID research/latest`
 
 ## Portal Bootstrap (if portals.yml is missing or empty)
@@ -130,12 +151,15 @@ If `portals.yml` does not exist OR has zero `active: true` entries, skip the por
 
 ### Step 3: Render the preview
 
-Print this format to the user (verbatim — no embellishment):
+Print this format to the user (verbatim — no embellishment). Apply the **soft archetype recommendation** from the Candidate Archetype step: for an exec/non-tech candidate the previewed defaults are `jobspy` + portals with the remote-tech and crypto boards marked recommended-OFF; for a tech candidate all 14 are on. Mark each scraper `(recommended)` or `(off — remote-tech skew for your profile)` so the user sees the reasoning, and add the archetype line. Never remove a board from the preview — the user can always override:
 
 ```
+Inferred archetype: <exec/non-tech | tech | mixed>. Board defaults below are a
+recommendation for that profile — 'go' accepts them, or add any board back.
+
 Phase 1 will scrape the following.
-Reply 'go' to run everything as shown, or describe what to skip/keep
-(e.g. "skip reddit and crypto boards, only companies with icp >= 8").
+Reply 'go' to run the recommended defaults, or describe what to skip/keep/add
+(e.g. "add the crypto boards back", "run all 14", "only companies with icp >= 8").
 
 Scrapers (14):
   • jobspy             — Indeed + LinkedIn
@@ -168,7 +192,8 @@ If `portals.yml` is missing or has no active entries, omit the "Portal companies
 
 You are an Opus model — natural-language parsing is your native mode. The reply may:
 
-- Be `go`, `yes`, `run it`, or empty → keep everything as previewed
+- Be `go`, `yes`, `run it`, or empty → use the **recommended defaults** as previewed (for an exec/non-tech archetype this means the recommended-ON subset, NOT all 14)
+- Add boards back ("add the crypto boards back", "run all 14", "include remoteok") → turn the named recommended-OFF boards back ON. The user always wins over the recommendation.
 - Name scrapers to drop ("skip reddit and the crypto boards") → drop matches
 - Filter portals by score ("only companies with icp_fit_score >= 8") → keep only those
 - Name companies to drop or keep ("skip Ramp and Cohere", "only Anthropic and Mistral")
@@ -211,6 +236,7 @@ Append a `phase_1` block to `$RUN_DIR/meta.json` BEFORE spawning scout-1 (so the
   "started_at": "...",
   "queries": ["..."],
   "phase_1": {
+    "candidate_archetype": "exec",
     "selected_scrapers": ["jobspy", "himalayas", ...],
     "selected_companies": ["anthropic", "ramp", ...],
     "user_filter_reply": "skip reddit, only icp >= 8"
@@ -257,8 +283,9 @@ Wait for completion. Read the summary (posting count, board breakdown).
 
 Spawn `ranker-7` in **foreground** with:
 - The `RUN_DIR`
-- Instruction to read `$RUN_DIR/phase-1-scrape/all-postings.md`
+- Instruction to read the compact index `$RUN_DIR/phase-1-scrape/all-postings-index.json` (the machine-readable view sized to load in one call), NOT the human-readable `all-postings.md` (which exceeds the agent read cap)
 - Instruction to score against `skills-inventory.md`
+- The inferred `candidate_archetype` (also recorded in `meta.json`) so ranker-7 weights the matching sections
 
 Wait for completion. Read the summary (tier counts, top company names).
 Then read `$RUN_DIR/phase-2-rank/ranked-opportunities.md` to extract the A-tier + top B-tier company list.

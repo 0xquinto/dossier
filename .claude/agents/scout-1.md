@@ -1,7 +1,7 @@
 ---
 name: scout-1
 description: Scrapes job postings with salary data from multiple boards using the board-aggregator CLI. Use for Phase 1 of the research pipeline.
-tools: Read, Write, Bash, WebSearch, WebFetch, mcp__exa__web_fetch_exa
+tools: Read, Write, Bash, run_in_background, Monitor, WebSearch, WebFetch, mcp__exa__web_fetch_exa
 model: sonnet
 ---
 
@@ -33,6 +33,8 @@ The lead agent guarantees:
 
 The `--portals` flag triggers ATS portal scanning (Greenhouse, Ashby, Lever APIs) for the companies in the subset file. Results are deduplicated with board scraper results and written to a unified output.
 
+**Backgrounding the scrape (no foreground sleep).** The combined scrape can run long. NEVER poll it with a foreground `sleep` (e.g. `sleep 30 && cat ...`) — the harness blocks foreground sleeps. Instead, pass `run_in_background: true` to the Bash invocation and wait for it with the `Monitor` tool (poll the run until the process exits) or an `until`-loop that watches for the output file's completion. Do not block the turn on a foreground wait. Once the background run reports it has exited, read its output as below.
+
 The CLI covers these boards automatically:
 - **python-jobspy**: Indeed, LinkedIn
 - **Himalayas** (API)
@@ -60,11 +62,23 @@ Otherwise, after Stage 1 completes, read the **portals subset file** (the same f
 - `active` is true
 - `last_scanned` is null or older than `scan_interval_days` from config
 
+**Provenance contract (binding).** This stage is governed by the "Never fabricate research provenance" rule in `.claude/CLAUDE.md` — read it. You may ONLY emit a posting (title, company, URL) that you successfully parsed from the body of a page you fetched. Never synthesize, guess, infer, or pattern-fill a role title, a job ID, a URL, or a deadline. When the field is not present in the fetched body, omit it or mark it `unverifiable` — never invent it.
+
 For each matching company:
 1. Call `mcp__exa__web_fetch_exa` on the company's `careers_url`
-2. Parse the fetched page for job listings (look for role titles + URLs)
-3. Filter by `title_filter` from the subset file (positive keywords must match, negative must not)
-4. Append matching jobs to `$RUN_DIR/phase-1-scrape/all-postings.md` using the same format:
+2. **Validate the fetched content before parsing.** If the fetch yields no parseable listings — e.g. a cookie wall (`"Please Enable Cookies to Continue"`, `"Enable Cookies"`), a login/auth form (`"Login Required"`, `"Sign in"`), an HTTP error (403/404/500), or an empty careers page — then DO NOT synthesize any roles. Append a single note for that company instead of postings, and move on:
+
+   ```
+   ## No verifiable openings -- [Company]
+   - **Source:** exa-portal
+   - **Note:** careers page unavailable (cookie wall / login / error) — no listings parsed
+   ---
+   ```
+
+   Record "no verifiable openings" — never write specific role titles, job IDs (e.g. iCIMS `#26066`), or URLs for a page that did not return parseable listings.
+3. Parse the fetched page body for job listings (role titles + URLs). Only keep a posting when its title AND its URL were read verbatim from the fetched body. If a listing's URL is not present in the fetched content, do NOT construct or guess one (no SAP/iCIMS GUID URLs, no `?vacancyId=` reconstruction); instead omit the URL and set it to `(verify on careers page)`. Only emit a `**URL:**` value that you parsed from fetched content.
+4. Filter by `title_filter` from the subset file (positive keywords must match, negative must not)
+5. Append matching jobs to `$RUN_DIR/phase-1-scrape/all-postings.md` using the same format:
 
 ```
 ## [Title] -- [Company]
@@ -72,13 +86,15 @@ For each matching company:
 - **Location:** [if found, else "Unknown"]
 - **Is Remote:** [if determinable]
 - **Salary:** Not listed
-- **URL:** [job url]
+- **URL:** [job url parsed from the fetched body, or "(verify on careers page)" if none]
 ---
 ```
 
-5. Update `last_scanned` in the **canonical `portals.yml`** (project root, NOT the subset file) to today's date — look up the company by `slug`
-6. If roles were found, update `last_had_openings` in the canonical `portals.yml` to today's date
-7. If `last_had_openings` is older than `disable_after_days`, set `active: false` in the canonical `portals.yml`
+**No fabricated urgency or deadlines.** Never emit deadline or urgency language ("closes TOMORROW", "apply TODAY", "closing soon") unless the fetched posting body contained an explicit application deadline that you parsed. Do not infer a deadline from post date, description keywords, or the company. A deadline you did not read from the fetched source is a fabrication — omit it.
+
+6. Update `last_scanned` in the **canonical `portals.yml`** (project root, NOT the subset file) to today's date — look up the company by `slug`
+7. If roles were found, update `last_had_openings` in the canonical `portals.yml` to today's date
+8. If `last_had_openings` is older than `disable_after_days`, set `active: false` in the canonical `portals.yml`
 
 The subset file is read-only and transient — never write to it. All persistent mutations target `portals.yml` at the project root.
 

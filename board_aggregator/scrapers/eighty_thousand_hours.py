@@ -4,7 +4,7 @@ import requests as http_requests
 
 from board_aggregator.models import JobPosting
 from board_aggregator.scrapers import register
-from board_aggregator.scrapers.base import BaseScraper
+from board_aggregator.scrapers.base import BaseScraper, report_skips
 
 # The 80,000 Hours job board (jobs.80000hours.org / app.80000hours.org) is
 # served from the EA Work backend's public Algolia index -- the same search
@@ -31,6 +31,8 @@ class EightyThousandHoursScraper(BaseScraper):
     ) -> list[JobPosting]:
         jobs: list[JobPosting] = []
         seen: set[str] = set()
+        attempted = 0
+        skipped = 0
 
         headers = {
             "X-Algolia-Application-Id": APP_ID,
@@ -63,9 +65,12 @@ class EightyThousandHoursScraper(BaseScraper):
                             continue
                         seen.add(obj_id)
 
+                        attempted += 1
                         posting = self._to_posting(item)
-                        if posting is not None:
-                            jobs.append(posting)
+                        if posting is None:
+                            skipped += 1
+                            continue
+                        jobs.append(posting)
 
                     if page + 1 >= data.get("nbPages", 0):
                         break
@@ -74,6 +79,7 @@ class EightyThousandHoursScraper(BaseScraper):
                     print(f"[80000hours] Error: {e}")
                     break
 
+        report_skips(self.name, skipped, attempted)
         return jobs
 
     def _to_posting(self, item: dict) -> JobPosting | None:
@@ -86,7 +92,7 @@ class EightyThousandHoursScraper(BaseScraper):
         location_types = item.get("tags_location_type") or []
         remote = any("remote" in str(t).lower() for t in location_types)
 
-        return JobPosting(
+        return JobPosting.try_create(
             title=title,
             company=company,
             source=self.name,

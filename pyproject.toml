@@ -29,7 +29,9 @@ dependencies = [
 
 [project.optional-dependencies]
 browser = ["playwright>=1.40"]
-dev = ["pytest>=8.0", "pytest-mock>=3.12", "responses>=0.25"]
+# python-docx: read a Word (.docx) CV during onboarding (board_aggregator.docx_utils).
+# Onboarding installs .[dev], so the docx reader ships with the standard setup path.
+dev = ["pytest>=8.0", "pytest-mock>=3.12", "responses>=0.25", "python-docx>=1.1"]
 
 [project.scripts]
 board-aggregator = "board_aggregator.cli:main"
