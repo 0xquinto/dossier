@@ -25,7 +25,7 @@ graph TB
         CLI[cli.py]
         Runner[runner.py]
         Registry[scrapers/__init__.py]
-        Scrapers["14 scrapers<br/>(14 boards)"]
+        Scrapers["13 scrapers<br/>(13 boards)"]
         Portal[portal_scanner.py]
         Output[output.py]
         Models[models.py]
@@ -38,7 +38,6 @@ graph TB
         HTML["HTML Scraping<br/>web3career, cryptocurrencyjobs"]
         NextJS["Next.js JSON<br/>CryptoJobsList"]
         Algolia["Algolia API<br/>HN Who's Hiring"]
-        Reddit["Reddit JSON API<br/>20 subreddits"]
         ATS["ATS APIs<br/>Greenhouse / Ashby / Lever"]
         Exa[Exa MCP]
     end
@@ -74,7 +73,6 @@ graph TB
     Scrapers --> HTML
     Scrapers --> NextJS
     Scrapers --> Algolia
-    Scrapers --> Reddit
     Portal --> ATS
     Runner --> Output
 
@@ -138,7 +136,6 @@ graph TB
 │       ├── web3career.py          # web3.career HTML table parsing
 │       ├── cryptocurrencyjobs.py  # cryptocurrencyjobs.co HTML card parsing
 │       ├── remoteok.py            # RemoteOK JSON API
-│       ├── reddit_jobs.py         # Reddit multireddit JSON API (20 subreddits, 2 tiers)
 │       ├── indiehackers.py        # Indie Hackers public Algolia jobAds index (closedTimestamp filter)
 │       ├── nocodejobs.py          # No Code Jobs static Astro HTML (.job-item data-* attrs)
 │       └── eighty_thousand_hours.py  # 80,000 Hours via EA Work public Algolia index (jobs_prod)
@@ -163,7 +160,6 @@ graph TB
 │   ├── test_cryptocurrencyjobs.py # cryptocurrencyjobs scraper
 │   ├── test_cryptojobslist.py     # CryptoJobsList scraper
 │   ├── test_portal_scanner.py     # ATS portal scanner (lifecycle, Greenhouse, Ashby, Lever)
-│   ├── test_reddit_jobs.py        # Reddit scraper (pagination, retry, company extraction)
 │   ├── test_indiehackers.py       # Indie Hackers Algolia scraper
 │   ├── test_nocodejobs.py         # No Code Jobs HTML scraper
 │   ├── test_eighty_thousand_hours.py  # 80,000 Hours Algolia scraper
@@ -295,12 +291,7 @@ graph TB
 | `web3career` | web3.career | HTML table parsing | No | 4 category pages; rows selected by `tr[onclick]`; location from `tds[3]` only |
 | `cryptocurrencyjobs` | cryptocurrencyjobs.co | HTML card parsing | No | 3 category pages; `<li>` cards; multi-currency salary regex |
 | `remoteok` | RemoteOK | JSON API | No | Skips first array element (legal notice); `is_remote=True` hardcoded |
-| `reddit` | 19 subreddits (multireddit) | Reddit JSON API (`/new.json`) | No | 2-tier system; Tier 2 needs hiring-signal regex; 5-step company extraction; 3-page limit; retry on 429 |
 | `80000hours` | 80,000 Hours | Algolia search API | **Yes** | EA Work `jobs_prod` index (search-only key); 3 pages × 100/query, deduped by `objectID`; remote from `tags_location_type`; Unix → ISO date |
-
-**Reddit scraper tiers:**
-- **Tier 1** (direct job boards): `forhire`, `hiring`, `jobbit`, `remotejobs` — posts pass without keyword filtering
-- **Tier 2** (adjacent communities): 15 subreddits — posts must match hiring signal regex: `\b(hiring|we.re hiring|job opening|open position|apply now|apply here|apply at)\b`
 
 ---
 
@@ -443,7 +434,6 @@ Three mocking patterns used throughout:
 | `test_cryptocurrencyjobs.py` | li cards, salary, company-without-link | 4 | `responses` + HTML fixture |
 | `test_cryptojobslist.py` | `__NEXT_DATA__` extraction, null salary | 3 | `responses` + inline HTML |
 | `test_portal_scanner.py` | Greenhouse/Ashby/Lever, lifecycle, `run_all` integration | 20 | `responses` + JSON fixtures + `tmp_path` |
-| `test_reddit_jobs.py` | Pagination, 429 retry, 5 company extraction patterns | 9 | `responses` with URL regex |
 | `test_tracker.py` | Application tracker CLI: add, update, import-run, dedup, show | 17 | `tmp_path` + inline Markdown |
 | `test_wizard.py` | Version check, command detection, template copy, env write, validate_install | 9 | patch `sys.version_info` + `tmp_path` |
 
@@ -511,7 +501,6 @@ Copy functions are **idempotent** — skips if destination exists. Re-running th
 - **Greenhouse `is_remote` requires custom metadata.** Detection depends on a metadata field named `"Location Type"` — companies that don't configure this always yield `is_remote=False`.
 - **HTML scrapers are fragile.** `web3career`, `cryptocurrencyjobs`, and `cryptojobslist` parse specific DOM structures that can break without notice.
 - **CLI default output path is non-versioned.** CLI defaults to `research/phase-1-scrape`; the pipeline always overrides with `-o $RUN_DIR/phase-1-scrape`.
-- **Reddit links point to threads, not company sites.** `job_url` is a Reddit permalink, not a company ATS link. Leads require manual follow-up.
 - **`settings.local.json` has a dead `mcp__jobspy__*` entry.** Legacy from when jobspy was an MCP server. Current design runs it as a subprocess via the CLI.
 - **Phase 4 is optional and deferred.** It is skipped by default and offered after the pipeline summary; only Phase 3 runs in the background. When opted into, Phase 4 runs foreground, sequentially per company — never simultaneously with Phase 3.
 - **Markdown description truncated twice.** Scrapers truncate to 500 chars; `output.py` truncates again to 300 chars.
