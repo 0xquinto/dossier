@@ -343,6 +343,38 @@ def _is_rate_limit(exc: Exception) -> bool:
     return bool(_HTTP_429_RE.search(text))
 
 
+def _jsonable(value: Any) -> Any:
+    """Normalize SDK objects into plain JSON-serializable data.
+
+    exa-py returns ``output.grounding`` as SDK objects (``AgentGroundingEntry``),
+    which ``json.dumps`` cannot serialize. The client owns the SDK boundary, so
+    it converts grounding to plain dicts/lists/scalars before putting it on
+    ``ExaRun`` — the CLI and agents must never see raw SDK objects. A live smoke
+    run surfaced this; every test fake returned plain dicts and missed it.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(v) for v in value]
+    model_dump = getattr(value, "model_dump", None)  # pydantic-based SDK models
+    if callable(model_dump):
+        try:
+            return _jsonable(model_dump(mode="json"))
+        except Exception:
+            try:
+                return _jsonable(model_dump())
+            except Exception:
+                pass
+    data = getattr(value, "__dict__", None)
+    if isinstance(data, dict) and data:
+        return {
+            str(k): _jsonable(v) for k, v in data.items() if not str(k).startswith("_")
+        }
+    return str(value)
+
+
 # --------------------------------------------------------------------------- #
 # The client
 # --------------------------------------------------------------------------- #
@@ -646,10 +678,16 @@ class ExaAgentClient:
 
     @staticmethod
     def _grounding(run: Any) -> Any:
+        """Grounding trace as plain JSON-able data (§3 audit trace).
+
+        exa-py returns these as SDK objects (``AgentGroundingEntry``); normalize
+        at the boundary via ``_jsonable`` so ``ExaRun.grounding`` is always
+        serializable by the CLI/agent.
+        """
         output = getattr(run, "output", None)
         if output is None:
             return None
-        return getattr(output, "grounding", None)
+        return _jsonable(getattr(output, "grounding", None))
 
     def _extract_cost(self, run: Any, fallback_id: str | None) -> dict[str, Any]:
         """Parse costDollars + ACU + searches + contacts into the exa-cost.json
