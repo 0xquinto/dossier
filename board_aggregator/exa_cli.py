@@ -162,7 +162,7 @@ def recon(company, role, url, run_dir, effort, enrich) -> None:
     """
     client = _build_or_exit()
     try:
-        result, grounding, cost = client.run_recon(
+        run = client.run_recon(
             company=company,
             role=role,
             url=url,
@@ -172,7 +172,7 @@ def recon(company, role, url, run_dir, effort, enrich) -> None:
     except ExaAgentError as exc:
         _fail(exc)
     else:
-        _emit(result, grounding, cost, run_dir)
+        _emit(run.result, run.grounding, run.cost, run_dir)
 
 
 @main.command()
@@ -213,7 +213,7 @@ def discover(icp, skills_inventory, max_items, effort, run_dir) -> None:
     icp_text = _resolve_icp(icp, skills_inventory)
     client = _build_or_exit()
     try:
-        result, grounding, cost = client.run_discover(
+        run = client.run_discover(
             icp=icp_text,
             max_items=max_items,
             effort=effort,
@@ -221,7 +221,7 @@ def discover(icp, skills_inventory, max_items, effort, run_dir) -> None:
     except ExaAgentError as exc:
         _fail(exc)
     else:
-        _emit(result, grounding, cost, run_dir)
+        _emit(run.result, run.grounding, run.cost, run_dir)
 
 
 # --------------------------------------------------------------------------- #

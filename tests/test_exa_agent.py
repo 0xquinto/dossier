@@ -133,14 +133,14 @@ def test_run_recon_lifecycle_returns_result_grounding_cost():
         poll_runs=[_completed_recon_run("agent_run_1")],
     )
     client = ExaAgentClient(client=fake)
-    result, grounding, cost = client.run_recon(
+    run = client.run_recon(
         company="Acme", role="AI Engineer", url="https://acme.com/jobs/1"
     )
-    assert isinstance(result, ReconResult)
-    assert result.primary_contact.name == "Jane Doe"
+    assert isinstance(run.result, ReconResult)
+    assert run.result.primary_contact.name == "Jane Doe"
     # grounding is surfaced as a separate trace, not folded into the answer.
-    assert grounding == [{"field": "primary_contact.email", "url": "https://acme.com/team"}]
-    assert cost["dollars"] == pytest.approx(0.10)
+    assert run.grounding == [{"field": "primary_contact.email", "url": "https://acme.com/team"}]
+    assert run.cost["dollars"] == pytest.approx(0.10)
     # create then poll, in that order.
     assert len(fake.create_calls) == 1
     assert fake.poll_calls[0][0] == "agent_run_1"
@@ -169,9 +169,9 @@ def test_run_discover_lifecycle():
                            usage={"agentComputeUnits": 2.5, "searches": 5})],
     )
     client = ExaAgentClient(client=fake)
-    result, grounding, cost = client.run_discover(icp="AI infra startups", max_items=10)
-    assert isinstance(result, DiscoverResult)
-    assert result.companies[0].name == "Acme"
+    run = client.run_discover(icp="AI infra startups", max_items=10)
+    assert isinstance(run.result, DiscoverResult)
+    assert run.result.companies[0].name == "Acme"
     kwargs = fake.create_calls[0]
     assert kwargs["effort"] == "auto"
     # maxItems bound flows into the output schema.
@@ -217,7 +217,7 @@ def test_cost_extraction_parses_all_components():
     run = _completed_recon_run("r")
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     assert cost["dollars"] == pytest.approx(0.10)
     assert cost["acu"] == pytest.approx(1.0)
     assert cost["searches"] == 3
@@ -231,7 +231,7 @@ def test_cost_dict_for_meta_json_is_serializable():
     run = _completed_recon_run("r")
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     json.dumps(cost)  # must not raise
 
 
@@ -266,7 +266,7 @@ def test_cost_extraction_dollars_shapes(cost_dollars, usage, expected):
                   cost_dollars=cost_dollars, usage=usage)
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     assert cost["dollars"] == expected
     assert not cost.get("estimated")
     assert not cost.get("unknown")
@@ -281,7 +281,7 @@ def test_cost_absent_dollars_uses_component_math_dict_usage():
                          "contacts": {"emails": 3, "phones": 1}})
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     # 2*0.10 + 4*0.005 + 3*0.02 + 1*0.07 = 0.20 + 0.02 + 0.06 + 0.07 = 0.35
     assert cost["dollars"] == pytest.approx(0.35)
     assert cost["estimated"] is True
@@ -296,7 +296,7 @@ def test_cost_absent_dollars_uses_component_math_object_usage():
                                   contacts={"emails": 1, "phones": 0}))
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     # 1*0.10 + 2*0.005 + 1*0.02 + 0*0.07 = 0.10 + 0.01 + 0.02 = 0.13
     assert cost["dollars"] == pytest.approx(0.13)
     assert cost["estimated"] is True
@@ -308,7 +308,7 @@ def test_cost_genuinely_zero_stays_zero():
                   cost_dollars={"total": 0.0}, usage={})
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     assert cost["dollars"] == pytest.approx(0.0)
     assert not cost.get("estimated")
     assert not cost.get("unknown")
@@ -327,7 +327,7 @@ def test_cost_malformed_dollars_fails_safe_to_cap_and_flags():
     # The fail-safe cost == per_run_cap, which trips the cap (fail closed) since
     # charge() aborts when dollars > cap... it equals the cap, so it does not
     # abort, but the cost dict is flagged unknown and metered at the cap value.
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     assert cost["dollars"] == pytest.approx(2.0)
     assert cost["unknown"] is True
 
@@ -339,7 +339,7 @@ def test_cost_malformed_total_in_dict_fails_safe():
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     acct = CostAccountant(per_run_cap=1.5, per_day_cap=50.0)
     client = ExaAgentClient(client=fake, accountant=acct)
-    _, _, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    cost = client.run_recon(company="Acme", role="Eng", url="u").cost
     assert cost["dollars"] == pytest.approx(1.5)
     assert cost["unknown"] is True
 
@@ -351,11 +351,11 @@ def test_client_never_emits_verified_label():
     run = _completed_recon_run("r")
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
-    result, grounding, cost = client.run_recon(company="Acme", role="Eng", url="u")
+    exa_run = client.run_recon(company="Acme", role="Eng", url="u")
     # The returned data + grounding + cost carry no 'verified' flag anywhere.
-    assert "verified" not in cost
-    assert "confidence" not in result.model_dump()
-    assert "verified" not in str(result.model_dump())
+    assert "verified" not in exa_run.cost
+    assert "confidence" not in exa_run.result.model_dump()
+    assert "verified" not in str(exa_run.result.model_dump())
 
 
 # --------------------------------------------------------------------------- #
@@ -478,7 +478,7 @@ def test_injected_client_does_not_need_key(monkeypatch):
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")],
                          poll_runs=[_completed_recon_run("r")])
     client = ExaAgentClient(client=fake)
-    result, _, _ = client.run_recon(company="A", role="r", url="u")
+    result = client.run_recon(company="A", role="r", url="u").result
     assert isinstance(result, ReconResult)
 
 
@@ -505,7 +505,7 @@ def test_read_retries_then_succeeds():
     fake = FakeExaClient()
     fake.agent.runs = FlakyRuns(fake)
     client = ExaAgentClient(client=fake, read_retries=3)
-    result, _, _ = client.run_recon(company="A", role="r", url="u")
+    result = client.run_recon(company="A", role="r", url="u").result
     assert isinstance(result, ReconResult)
     assert fake.agent.runs.attempts == 3
 
@@ -608,7 +608,7 @@ def test_fast_attempt_passes_under_timeout():
         poll_runs=[_completed_recon_run("agent_run_1")],
     )
     client = ExaAgentClient(client=fake, timeout_s=5.0)
-    result, _, _ = client.run_recon(company="A", role="r", url="u")
+    result = client.run_recon(company="A", role="r", url="u").result
     assert isinstance(result, ReconResult)
 
 
@@ -626,7 +626,7 @@ def test_timeout_disabled_does_not_abort_slow_call():
     fake = FakeExaClient()
     fake.agent.runs = SlowOnceRuns(fake)
     client = ExaAgentClient(client=fake, timeout_s=0)
-    result, _, _ = client.run_recon(company="A", role="r", url="u")
+    result = client.run_recon(company="A", role="r", url="u").result
     assert isinstance(result, ReconResult)
 
 

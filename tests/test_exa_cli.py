@@ -22,6 +22,7 @@ from board_aggregator import exa_cli
 from board_aggregator.exa_agent import (
     CircuitBreakerOpen,
     CostCapExceeded,
+    ExaRun,
     ExaRunFailedError,
     ExaSchemaError,
     MissingApiKeyError,
@@ -64,7 +65,8 @@ def _cost():
 
 
 class FakeClient:
-    """Records the call and returns a canned (result, grounding, cost) triple."""
+    """Records the call and returns a canned ExaRun built from the supplied
+    (result, grounding, cost) triple."""
 
     def __init__(self, recon=None, discover=None, raises=None):
         self._recon = recon
@@ -77,13 +79,13 @@ class FakeClient:
         self.recon_calls.append(kwargs)
         if self._raises is not None:
             raise self._raises
-        return self._recon
+        return ExaRun(*self._recon)
 
     def run_discover(self, **kwargs):
         self.discover_calls.append(kwargs)
         if self._raises is not None:
             raise self._raises
-        return self._discover
+        return ExaRun(*self._discover)
 
 
 @pytest.fixture

@@ -9,10 +9,11 @@ accounting with the three hard stops.
 
 Design constraints carried from the spec:
 
-- **§3 grounding leads, never verifies.** The client returns ``(result,
-  grounding, cost)``. ``grounding`` is a separate audit trace; the client NEVER
-  stamps a field ``verified`` — that label is earned later by the agent's own
-  full-page fetch. No code path here writes a confidence flag.
+- **§3 grounding leads, never verifies.** The client returns an ``ExaRun``
+  (``result`` / ``grounding`` / ``cost``). ``grounding`` is a separate audit
+  trace; the client NEVER stamps a field ``verified`` — that label is earned
+  later by the agent's own full-page fetch. No code path here writes a
+  confidence flag.
 - **§2 errors are prompts.** Typed exceptions carry recovery text for the
   missing key, the rate-limit / 2-concurrent cap, and a cost-cap hit.
 - **§5 meter on failure.** Errored/empty runs are still charged to the
@@ -28,9 +29,10 @@ import concurrent.futures
 import json
 import os
 import re
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from pydantic import ValidationError
 
@@ -39,6 +41,25 @@ from board_aggregator.exa_schemas import (
     ReconResult,
     json_schema,
 )
+
+# Exa Agent effort tiers, typed at the client boundary. The CLI's click.Choice
+# is a separate, narrower surface and stays as-is.
+Effort = Literal["minimal", "low", "medium", "high", "xhigh", "auto"]
+
+
+@dataclass(frozen=True)
+class ExaRun:
+    """A finished Exa Agent run: the validated answer, its grounding trace, and
+    the cost meter — kept as three named, separate fields (§3).
+
+    ``grounding`` is an audit trace that LEADS, never verifies (§3); it is not
+    folded into ``result``. ``cost`` stays a plain dict so the optional
+    ``estimated`` / ``unknown`` keys and existing ``cost["..."]`` access survive.
+    """
+
+    result: "ReconResult | DiscoverResult"
+    grounding: Any
+    cost: dict[str, Any]
 
 # Pricing reference (Exa Agent API guide): 1 ACU = $0.10, $0.005/search,
 # $0.02/email, $0.07/phone. We read the run's own costDollars when present and
@@ -370,12 +391,12 @@ class ExaAgentClient:
         company: str,
         role: str,
         url: str,
-        effort: str = "medium",
+        effort: Effort = "medium",
         enrich_contacts: bool = False,
-    ) -> tuple[ReconResult, Any, dict[str, Any]]:
+    ) -> ExaRun:
         """Run the recon-3 job: contact + company-context for one role.
 
-        Returns ``(validated ReconResult, grounding trace, cost dict)``.
+        Returns an ``ExaRun`` (validated ReconResult, grounding trace, cost dict).
         ``effort`` defaults to ``medium`` (flat, predictable cost; §5).
         """
         query = (
@@ -397,9 +418,9 @@ class ExaAgentClient:
         self,
         icp: str,
         max_items: int,
-        effort: str = "auto",
+        effort: Effort = "auto",
         exclusions: list[dict[str, Any]] | None = None,
-    ) -> tuple[DiscoverResult, Any, dict[str, Any]]:
+    ) -> ExaRun:
         """Run the discoverer-6 job: build an ICP-fit company list.
 
         ``effort`` defaults to ``auto`` and the list is bounded by ``max_items``
@@ -436,10 +457,10 @@ class ExaAgentClient:
         self,
         query: str,
         output_schema: dict[str, Any],
-        effort: str,
+        effort: Effort,
         model: type,
         **create_kwargs: Any,
-    ) -> tuple[Any, Any, dict[str, Any]]:
+    ) -> ExaRun:
         """Create → poll → validate, with caps, retries, and meter-on-failure."""
         if self.accountant is not None:
             self.accountant.precheck()
@@ -469,10 +490,10 @@ class ExaAgentClient:
         self,
         query: str,
         output_schema: dict[str, Any],
-        effort: str,
+        effort: Effort,
         model: type,
         **create_kwargs: Any,
-    ) -> tuple[Any, Any, dict[str, Any]]:
+    ) -> ExaRun:
         """The create→poll→validate body, wrapped by ``_run`` for the breaker."""
         # Write step (create the run) — low retry ceiling, fail loudly. Read step
         # (poll to terminal) — higher retry ceiling. run.id is the idempotency
@@ -542,7 +563,7 @@ class ExaAgentClient:
         except ValidationError as exc:
             raise ExaSchemaError(cost["run_id"], str(exc)) from exc
         grounding = self._grounding(finished)
-        return result, grounding, cost
+        return ExaRun(result=result, grounding=grounding, cost=cost)
 
     def _with_retries(
         self,

@@ -20,7 +20,14 @@ passing as Exa's ``outputSchema``.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+# Supported ATS portals (discoverer-6 stores the matching slug/careers_url).
+# Mirrors the ats set in the discoverer-6 prompt: greenhouse/ashby/lever/workday
+# (+ null). Constraining it here also tightens the exported Exa ``outputSchema``.
+Ats = Literal["greenhouse", "ashby", "lever", "workday"]
 
 
 class Contact(BaseModel):
@@ -44,7 +51,7 @@ class ReconResult(BaseModel):
     """`recon-3` answer schema: the primary contact, alternatives, and context."""
 
     primary_contact: Contact
-    alternative_contacts: list[Contact] = []
+    alternative_contacts: list[Contact] = Field(default_factory=list)
     company_context: str | None = None
 
 
@@ -53,17 +60,23 @@ class Company(BaseModel):
 
     name: str
     domain: str | None = None
-    ats: str | None = None
+    ats: Ats | None = None
     slug: str | None = None
     careers_url: str | None = None
-    icp_fit_score: float | None = None
+    icp_fit_score: float | None = Field(
+        default=None,
+        ge=0,
+        le=10,
+        description="ICP-fit score on the canonical 1-10 scale (discoverer-6's "
+        "icp_min_score gate assumes 1-10).",
+    )
     icp_fit_reasoning: str | None = None
 
 
 class DiscoverResult(BaseModel):
     """`discoverer-6` answer schema: the discovered ICP-fit company list."""
 
-    companies: list[Company] = []
+    companies: list[Company] = Field(default_factory=list)
 
 
 def json_schema(model: type[BaseModel]) -> dict:
