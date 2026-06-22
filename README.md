@@ -16,10 +16,10 @@ That's it. On first run, `lead-0` detects missing setup and walks you through ev
 - Installing prerequisites (Python 3.12+, git, Homebrew, Node.js 20+)
 - Setting up the virtual environment and dependencies
 - Installing Playwright + Chromium for CV PDF rendering
-- Configuring Exa MCP for contact research
+- Configuring the `EXA_API_KEY` credential for contact research
 - Building your skills inventory and resume from your existing materials (CV, portfolio, GitHub, LinkedIn)
 
-**Manual alternative:** `python3 setup_wizard.py` handles venv + deps + Exa MCP without the profile builder. (On Windows, if bare `python` opens the Microsoft Store, use the real interpreter — see [Development](#development).)
+**Manual alternative:** `python3 setup_wizard.py` handles venv + deps + the `EXA_API_KEY` credential (exported to your shell profile) without the profile builder. (On Windows, if bare `python` opens the Microsoft Store, use the real interpreter — see [Development](#development).)
 
 ## Claude Desktop & claude.ai
 

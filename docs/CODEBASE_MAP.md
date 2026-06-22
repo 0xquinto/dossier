@@ -466,7 +466,7 @@ Onboarding script; runs **before** the venv exists.
 | 1 | `check_prerequisites()` | Asserts Python ≥3.12; warns if `claude` CLI missing; exits if `git` missing |
 | 2 | `setup_venv()` | Creates `.venv/`; installs `.[dev]` silently via pip |
 | 3 | `setup_templates()` | Copies `templates/skills-inventory.example.md` → `skills-inventory.md` and `templates/resume.example.md` → `resume.md` if not already present; opens in `$EDITOR` if set |
-| 4 | `setup_exa_mcp()` | Prompts for Exa API key; configures the Exa MCP via `claude mcp add --transport http exa <url>`; skips if already configured |
+| 4 | `setup_exa_credential()` | Prompts for an Exa API key; persists it as an `export EXA_API_KEY` in the user's shell profile; skips if `EXA_API_KEY` is already set |
 | 5 | `validate_install()` | Imports `board_aggregator.__version__` via subprocess; runs `--list-scrapers` and counts output lines |
 
 Copy functions are **idempotent** — skips if destination exists. Re-running the wizard is safe.
@@ -506,7 +506,7 @@ Copy functions are **idempotent** — skips if destination exists. Re-running th
 - **Markdown description truncated twice.** Scrapers truncate to 500 chars; `output.py` truncates again to 300 chars.
 - **`pdf-9` requires Node.js ≥20 + Playwright.** It self-renders the PDF by shelling out to `node scripts/generate-pdf.mjs`. The dependency is enforced by `lead-0`'s readiness check, not by `setup_wizard.py`.
 - **`pdf-9` enforces section boundaries.** Work Experience and Projects must never cross-contaminate (e.g., side projects must not appear under Work Experience). Non-obvious constraint embedded in the agent definition.
-- **Exa is configured via MCP, not `.env`.** `setup_exa_mcp()` runs `claude mcp add --transport http exa <url>`. Any docs describing a `.env`-based Exa key workflow are stale.
+- **Exa is configured via the `EXA_API_KEY` env var, not MCP.** `setup_exa_credential()` (and primer-8 onboarding) export `EXA_API_KEY` to the user's shell profile; the shared `dossier-research` client reads it. The Exa MCP server is retired.
 
 ---
 

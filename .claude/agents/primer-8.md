@@ -1,6 +1,6 @@
 ---
 name: primer-8
-description: Onboarding agent that sets up prerequisites, configures Exa MCP, and builds user profile. Spawned by lead-0 when readiness check fails.
+description: Onboarding agent that sets up prerequisites, configures the EXA_API_KEY credential, and builds user profile. Spawned by lead-0 when readiness check fails.
 tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch
 model: opus
 ---
@@ -47,15 +47,22 @@ stub** instead of a real interpreter: it exits with code **49** and prints
   call you run: set `PYTHONUTF8=1` (and `PYTHONIOENCODING=utf-8`) in the
   environment so stdout/stderr and file I/O stay UTF-8.
 
-## Stage 2: Exa MCP
+## Stage 2: Exa credential (EXA_API_KEY)
 
-Only run if lead-0 reports: exa mcp check failed.
+Only run if lead-0 reports: exa credential check failed.
+
+Phase 3 (contact research) and company discovery reach Exa through the shared
+`dossier-research` client, which reads the **`EXA_API_KEY` environment
+variable** — not an MCP server. Set that env var so the client (and the
+`dossier-research` CLI) can authenticate.
 
 1. Tell the user: "Phase 3 of the pipeline uses Exa for contact research. You'll need a free Exa API key."
 2. Direct them to: https://dashboard.exa.ai/home
-3. Ask the user to paste their API key
-4. Run: `claude mcp add --transport http exa "https://mcp.exa.ai/mcp?exaApiKey=USER_KEY&tools=web_search_exa,web_search_advanced_exa,web_fetch_exa"` (replace USER_KEY with the key they pasted)
-5. Validate: run `claude mcp list` and confirm output contains `exa`
+3. Ask the user to paste their API key.
+4. Persist it as the `EXA_API_KEY` environment variable so it is available to every pipeline session. Append the export to the user's shell profile (the only thing you ask them to confirm is exposing the secret to the file):
+   - macOS/Linux: add `export EXA_API_KEY="<key>"` to `~/.zshrc` (or `~/.bashrc`), then have the user re-source it / open a new shell.
+   - Windows: `setx EXA_API_KEY "<key>"` (new shells pick it up).
+5. Validate: confirm the variable is set — `test -n "$EXA_API_KEY" && echo OK` (macOS/Linux) — and that the client can read it: `.venv/bin/python -c "import os; assert os.environ.get('EXA_API_KEY'), 'EXA_API_KEY not set'; print('EXA_API_KEY OK')"`.
 
 ## Stage 3: Node.js + Playwright (for PDF rendering)
 
@@ -79,7 +86,7 @@ pre-approves every command the earlier stages run — the OS-detection probes
 (`brew install python|git|node`, `sudo apt install …`, `winget install …`),
 the venv + package setup (`python3 -m venv`, `.venv/bin/pip install …`), the
 Node/Playwright steps (`node --version`, `npm install`, `npx playwright install
-chromium`), and the Exa MCP step (`claude mcp …`). Because these are
+chromium`), and the Exa credential check (reading `EXA_API_KEY`). Because these are
 pre-approved, you run them with `Bash` WITHOUT the harness prompting the user
 for each one — that is the whole point of the shipped allowlist (T4-1). If a
 check fails, restore/repair `settings.json` to match the committed list; do not
@@ -105,6 +112,7 @@ Baseline `allow` list (keep in sync with the committed `.claude/settings.json`):
       "Bash(python *)", "Bash(python3 *)", "Bash(py -3 setup_wizard.py)",
       "Bash(.venv/bin/pip install *)", "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/pytest *)", "Bash(.venv/bin/board-aggregator *)",
+      "Bash(.venv/bin/dossier-research *)",
       "Bash(.venv\\Scripts\\python.exe *)",
       "Bash(git add *)", "Bash(git commit *)", "Bash(git worktree *)",
       "Bash(git check-ignore *)", "Bash(git --version)", "Bash(ln -sfn *)",
@@ -116,8 +124,7 @@ Baseline `allow` list (keep in sync with the committed `.claude/settings.json`):
       "Bash(brew install git)", "Bash(brew install node)",
       "Bash(sudo apt install python3.12)", "Bash(sudo apt install git)",
       "Bash(sudo apt install -y nodejs)",
-      "Bash(winget install Python.Python.3.12)",
-      "mcp__exa__*"
+      "Bash(winget install Python.Python.3.12)"
     ]
   }
 }
@@ -180,4 +187,4 @@ Build both files from their answers.
 
 ## What you return
 
-Return ONLY a 1-2 sentence summary to lead-0. Example: "Setup complete. Installed Python 3.12, configured Exa MCP, built profile from user's CV and GitHub."
+Return ONLY a 1-2 sentence summary to lead-0. Example: "Setup complete. Installed Python 3.12, configured the EXA_API_KEY credential, built profile from user's CV and GitHub."

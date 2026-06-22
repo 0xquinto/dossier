@@ -190,13 +190,6 @@ def copy_template(src: Path, dest: Path) -> bool:
     return True
 
 
-EXA_TOOLS = ",".join([
-    "web_search_exa",
-    "web_search_advanced_exa",
-    "web_fetch_exa",
-])
-
-
 def setup_venv():
     """Create virtual environment and install the package."""
     print("\n=== Step 2: Setting up virtual environment ===\n")
@@ -250,42 +243,51 @@ def setup_templates():
             print(f"    - {f}")
 
 
-def exa_mcp_exists() -> bool:
-    """Return True if an 'exa' MCP server is already configured."""
-    result = subprocess.run(
-        ["claude", "mcp", "list"],
-        capture_output=True,
-        text=True,
-    )
-    for line in result.stdout.splitlines():
-        if line.strip().startswith("exa:"):
-            return True
-    return False
+def exa_credential_exists() -> bool:
+    """Return True if the EXA_API_KEY environment variable is already set."""
+    return bool(os.environ.get("EXA_API_KEY"))
 
 
-def setup_exa_mcp():
-    """Configure Exa MCP server via claude mcp add."""
-    print("\n=== Step 4: Exa MCP server ===\n")
+def shell_profile_path() -> Path:
+    """Return the shell profile file the EXA_API_KEY export should be appended to.
 
-    if exa_mcp_exists():
-        print("  Exa MCP server already configured ✓")
+    Prefers the file matching the user's $SHELL (~/.zshrc for zsh, ~/.bashrc
+    otherwise), defaulting to ~/.zshrc — matches primer-8's onboarding path.
+    """
+    shell = os.environ.get("SHELL", "")
+    if "bash" in shell:
+        return Path.home() / ".bashrc"
+    return Path.home() / ".zshrc"
+
+
+def setup_exa_credential():
+    """Configure the EXA_API_KEY environment variable for the shared client.
+
+    Phase 3 (contact research) and discovery reach Exa through the shared
+    ``dossier-research`` client, which reads ``EXA_API_KEY`` — not an MCP
+    server. Persist the key as an ``export`` in the user's shell profile so
+    every pipeline session can authenticate.
+    """
+    print("\n=== Step 4: Exa credential (EXA_API_KEY) ===\n")
+
+    if exa_credential_exists():
+        print("  EXA_API_KEY already set ✓")
         return
 
-    print("  Exa API key is required for Phase 3 (contact research).")
-    print("  Get one at https://exa.ai")
+    print("  An Exa API key is required for Phase 3 (contact research).")
+    print("  Get a free key at https://dashboard.exa.ai/home")
     exa_key = input("  Exa API key (Enter to skip): ").strip()
 
     if not exa_key:
-        print("  Skipped — you can add it later with:")
-        print("    claude mcp add --transport http exa <url>")
+        print("  Skipped — set it later by adding this to your shell profile:")
+        print('    export EXA_API_KEY="<key>"')
         return
 
-    url = f"https://mcp.exa.ai/mcp?exaApiKey={exa_key}&tools={EXA_TOOLS}"
-    subprocess.run(
-        ["claude", "mcp", "add", "--transport", "http", "exa", url],
-        check=True,
-    )
-    print("  Exa MCP server added ✓")
+    profile = shell_profile_path()
+    with open(profile, "a", encoding="utf-8") as fh:
+        fh.write(f'\nexport EXA_API_KEY="{exa_key}"\n')
+    print(f"  EXA_API_KEY exported in {profile} ✓")
+    print("  Open a new shell (or re-source the profile) to pick it up.")
 
 
 def validate_install(python_path: Path | None = None) -> bool:
@@ -349,7 +351,7 @@ def main():
     check_prerequisites()
     setup_venv()
     setup_templates()
-    setup_exa_mcp()
+    setup_exa_credential()
 
     python = ROOT / ".venv" / "bin" / "python"
     if not validate_install(python):
