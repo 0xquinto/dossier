@@ -19,6 +19,7 @@
       "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/pytest *)",
       "Bash(.venv/bin/board-aggregator *)",
+      "Bash(.venv/bin/dossier-research *)",
       "Bash(.venv\\Scripts\\python.exe *)",
       "Bash(git add *)",
       "Bash(git commit *)",
@@ -28,7 +29,6 @@
       "Bash(ln -sfn *)",
       "Bash(rm -rf research/runs/*)",
       "Bash(ls *)",
-      "Bash(claude mcp *)",
       "Bash(node --version)",
       "Bash(node *)",
       "Bash(npm install)",
@@ -41,8 +41,7 @@
       "Bash(sudo apt install python3.12)",
       "Bash(sudo apt install git)",
       "Bash(sudo apt install -y nodejs)",
-      "Bash(winget install Python.Python.3.12)",
-      "mcp__exa__*"
+      "Bash(winget install Python.Python.3.12)"
     ]
   }
 }

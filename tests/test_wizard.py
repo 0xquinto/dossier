@@ -67,28 +67,123 @@ def test_copy_template_skips_existing(tmp_path):
     assert dest.read_text() == "# My custom content\n"
 
 
-def test_exa_mcp_exists_detects_server():
-    """exa_mcp_exists returns True when 'exa:' appears in mcp list output."""
-    from setup_wizard import exa_mcp_exists
+def test_exa_credential_exists_detects_env_var(monkeypatch):
+    """exa_credential_exists returns True when EXA_API_KEY is already set."""
+    from setup_wizard import exa_credential_exists
 
-    fake_output = "exa: https://mcp.exa.ai/mcp?exaApiKey=xxx (HTTP) - Connected\n"
+    monkeypatch.setenv("EXA_API_KEY", "sk-exa-xxx")
+    assert exa_credential_exists() is True
+
+
+def test_exa_credential_exists_returns_false_when_missing(monkeypatch):
+    """exa_credential_exists returns False when EXA_API_KEY is absent."""
+    from setup_wizard import exa_credential_exists
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    assert exa_credential_exists() is False
+
+
+def test_setup_exa_credential_no_mcp_add(monkeypatch, tmp_path):
+    """setup_exa_credential must NOT shell out to `claude mcp add` — the Exa MCP
+    server is retired; the credential is the EXA_API_KEY env var (§6)."""
+    from setup_wizard import setup_exa_credential
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    monkeypatch.setattr("builtins.input", lambda _: "sk-exa-test-key")
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
     with patch("setup_wizard.subprocess.run") as mock_run:
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout=fake_output, stderr=""
-        )
-        assert exa_mcp_exists() is True
+        setup_exa_credential()
+        # Nothing should have been shelled out — no `claude mcp add`.
+        for call in mock_run.call_args_list:
+            argv = call.args[0] if call.args else []
+            assert "mcp" not in argv
+
+    # The key must be persisted as an EXA_API_KEY export in the shell profile.
+    # The value round-trips through a real shell (shlex.quote keeps it safe).
+    written = profile.read_text()
+    assert "export EXA_API_KEY=" in written
+    result = subprocess.run(
+        ["bash", "-c", f"source {profile} && printf %s \"$EXA_API_KEY\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout == "sk-exa-test-key"
 
 
-def test_exa_mcp_exists_returns_false_when_missing():
-    """exa_mcp_exists returns False when no exa server is listed."""
-    from setup_wizard import exa_mcp_exists
+def test_setup_exa_credential_skips_when_already_set(monkeypatch, tmp_path):
+    """When EXA_API_KEY is already in the environment, no prompt and no write."""
+    from setup_wizard import setup_exa_credential
 
-    fake_output = "slither: /usr/local/bin/slither-mcp - Connected\n"
-    with patch("setup_wizard.subprocess.run") as mock_run:
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout=fake_output, stderr=""
-        )
-        assert exa_mcp_exists() is False
+    monkeypatch.setenv("EXA_API_KEY", "sk-already-set")
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
+    def _no_input(_):
+        raise AssertionError("should not prompt when EXA_API_KEY already set")
+
+    monkeypatch.setattr("builtins.input", _no_input)
+    setup_exa_credential()
+    assert not profile.exists()
+
+
+def test_setup_exa_credential_skip_on_empty_input(monkeypatch, tmp_path):
+    """An empty key entry skips persistence (user can add it later)."""
+    from setup_wizard import setup_exa_credential
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
+    setup_exa_credential()
+    assert not profile.exists()
+
+
+def test_setup_exa_credential_idempotent_no_duplicate_export(monkeypatch, tmp_path):
+    """Re-running the wizard must not append a second EXA_API_KEY export line.
+
+    A second run within the same shell session won't have EXA_API_KEY in the
+    process env (the export only lands in the profile), so idempotency has to be
+    detected from the profile content, not the env var."""
+    from setup_wizard import setup_exa_credential
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    monkeypatch.setattr("builtins.input", lambda _: "sk-exa-test-key")
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
+    setup_exa_credential()
+    setup_exa_credential()
+
+    written = profile.read_text()
+    assert written.count("export EXA_API_KEY=") == 1
+
+
+def test_setup_exa_credential_quotes_special_chars(monkeypatch, tmp_path):
+    """A key with shell-special characters must be persisted safely so it can't
+    break the profile when sourced."""
+    from setup_wizard import setup_exa_credential
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    nasty = 'sk$(rm -rf /)"; echo pwned #'
+    monkeypatch.setattr("builtins.input", lambda _: nasty)
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
+    setup_exa_credential()
+
+    written = profile.read_text()
+    # Exactly one export line, and the value round-trips through a real shell.
+    assert written.count("export EXA_API_KEY=") == 1
+    result = subprocess.run(
+        ["bash", "-c", f"source {profile} && printf %s \"$EXA_API_KEY\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout == nasty
 
 
 def test_validate_install_success():

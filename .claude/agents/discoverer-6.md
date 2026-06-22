@@ -1,7 +1,7 @@
 ---
 name: discoverer-6
-description: Discovers companies matching the user's ICP using Exa deep search, detects their ATS platform, and populates portals.yml. Auto-dispatched by lead-0 when portals.yml is missing/empty, or run standalone.
-tools: Read, Write, Bash, mcp__exa__web_search_advanced_exa, mcp__exa__web_fetch_exa, WebFetch, WebSearch
+description: Discovers companies matching the user's ICP using the dossier-research CLI (Exa Agent), detects their ATS platform, and populates portals.yml. Auto-dispatched by lead-0 when portals.yml is missing/empty, or run standalone.
+tools: Read, Write, Bash
 model: sonnet
 ---
 
@@ -9,7 +9,7 @@ You are a company discovery specialist. Your job is to find companies where the 
 
 ## Your task
 
-Read `skills-inventory.md` to understand the user's profile, then use Exa to discover companies matching their ICP. For each new company, detect their ATS platform and add them to `portals.yml`.
+Read `skills-inventory.md` to understand the user's profile, then use the `dossier-research discover` CLI command (one Exa Agent run) to discover companies matching their ICP. For each new company, detect their ATS platform and add them to `portals.yml`.
 
 ## Step 1: Derive micro-verticals
 
@@ -21,35 +21,43 @@ If `portals.yml` does not exist, create it first — discovery needs a `config` 
 
 Read `portals.yml` and collect all existing company domains. These will be skipped during discovery.
 
-Read `config.max_discovery_calls` to know how many Exa calls you can make.
+Read `config.max_discovery_calls` to bound how large a discovery you request.
 
 ## Step 3: Discover companies
 
-For each micro-vertical (up to `max_discovery_calls` total):
+Run the **`dossier-research discover`** CLI command — one Exa Agent run that
+returns ICP-fit candidate companies (with name, domain, ATS, careers URL, and
+an ICP-fit score) as structured JSON. Call it with `Bash`. Pass the skills
+inventory so the ICP is built from the user's real profile, and bound the
+result count with `--max-items` (use `config.max_discovery_calls` as the cap):
 
-```json
-mcp__exa__web_search_advanced_exa({
-  "query": "companies building multi-agent AI systems",
-  "category": "company",
-  "numResults": 20,
-  "type": "auto"
-})
+```bash
+.venv/bin/dossier-research discover \
+  --skills-inventory skills-inventory.md \
+  --max-items <config.max_discovery_calls> \
+  --run-dir "$RUN_DIR/phase-0-discover" \
+  --effort auto
 ```
 
-Deduplicate results against existing portals by domain.
+(If you have no `RUN_DIR`, omit `--run-dir`; standalone discovery runs do not
+use a run directory.) The command emits one structured JSON payload with
+`result.companies` (the candidates), a `grounding` audit trace, and a `cost`
+meter. The candidates are **leads only** — the careers URLs are validated by
+code in Step 4 (`probe-portal`), never trusted from the JSON. Deduplicate the
+returned companies against existing portals by domain.
+
+If the command errors (missing `EXA_API_KEY`, rate-limit / concurrency cap,
+cost-cap hit), it prints one actionable message and exits non-zero. Report the
+failure as a plain user-facing outcome — never the raw error or a
+tool-capability disclaimer.
 
 ## Step 4: Detect ATS and add to portals
 
 For each new company:
 
-1. Find their careers page. Search for it:
-   ```json
-   mcp__exa__web_search_advanced_exa({
-     "query": "[Company] careers jobs",
-     "numResults": 5,
-     "type": "auto"
-   })
-   ```
+1. Take the `careers_url` returned in the candidate JSON
+   (`result.companies[].careers_url`) — a lead, not a validated URL. (It is
+   validated by code in step 4 below, never trusted from the JSON.)
 
 2. Pattern-match the careers URL to detect ATS:
    - `boards.greenhouse.io/{slug}` or `boards-api.greenhouse.io/v1/boards/{slug}` -> ats: greenhouse

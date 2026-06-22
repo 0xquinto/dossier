@@ -1,7 +1,7 @@
 ---
 name: scout-1
 description: Scrapes job postings with salary data from multiple boards using the board-aggregator CLI. Use for Phase 1 of the research pipeline.
-tools: Read, Write, Bash, run_in_background, Monitor, WebSearch, WebFetch, mcp__exa__web_fetch_exa
+tools: Read, Write, Bash, run_in_background, Monitor, WebSearch, WebFetch
 model: sonnet
 ---
 
@@ -52,7 +52,7 @@ The CLI covers these boards automatically:
 
 The CLI handles deduplication and writes both `all-postings.md` and `all-postings.csv` to the output directory.
 
-### Stage 2: Exa fetch for non-ATS portals
+### Stage 2: Exa Search-API fetch for non-ATS portals
 
 If the subset file at `$RUN_DIR/phase-1-scrape/portals-subset.yml` does not exist (preflight produced no portal companies), skip Stage 2 entirely.
 
@@ -64,7 +64,13 @@ Otherwise, after Stage 1 completes, read the **portals subset file** (the same f
 **Provenance contract (binding).** This stage is governed by the "Never fabricate research provenance" rule in `.claude/CLAUDE.md` — read it. You may ONLY emit a posting (title, company, URL) that you successfully parsed from the body of a page you fetched. Never synthesize, guess, infer, or pattern-fill a role title, a job ID, a URL, or a deadline. When the field is not present in the fetched body, omit it or mark it `unverifiable` — never invent it.
 
 For each matching company:
-1. Call `mcp__exa__web_fetch_exa` on the company's `careers_url`
+1. Fetch the company's `careers_url` over the **Exa Search API contents path** — the board-aggregator's bundled fetch helper. Run it with `Bash`:
+
+   ```bash
+   .venv/bin/python -c "from board_aggregator.exa_agent import ExaAgentClient; import json; print(ExaAgentClient().fetch_contents('<careers_url>'))"
+   ```
+
+   This stays on the cheap Search API (a single-page fetch), not an Exa Agent run. The page body is what you parse below.
 2. **Validate the fetched content before parsing.** If the fetch yields no parseable listings — e.g. a cookie wall (`"Please Enable Cookies to Continue"`, `"Enable Cookies"`), a login/auth form (`"Login Required"`, `"Sign in"`), an HTTP error (403/404/500), or an empty careers page — then DO NOT synthesize any roles. Append a single note for that company instead of postings, and move on:
 
    ```
