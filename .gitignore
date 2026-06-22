@@ -1,3 +1,7 @@
+# Exa Agent per-day cost state (counts/dollars only, no PII; persists the
+# per-day spend cap across CLI invocations)
+.dossier-exa-cost.json
+
 # Pipeline run outputs (large, regenerable)
 research/runs/
 research/latest

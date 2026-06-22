@@ -22,6 +22,8 @@ from board_aggregator import exa_cli
 from board_aggregator.exa_agent import (
     CircuitBreakerOpen,
     CostCapExceeded,
+    ExaRunFailedError,
+    ExaSchemaError,
     MissingApiKeyError,
     NoProgressError,
     RateLimitError,
@@ -243,6 +245,12 @@ def test_discover_does_not_write_portals(patch_client, tmp_path, monkeypatch):
         (CostCapExceeded("Max runs reached (1/1)."), "max runs"),
         (NoProgressError("no progress."), "progress"),
         (CircuitBreakerOpen(), "circuit breaker"),
+        # C1: the most common failures — a non-completed/empty run and a schema
+        # mismatch — are now typed ExaAgentErrors, so they render as prompts.
+        (ExaRunFailedError("agent_run_9", "errored", False, 0.07),
+         "did not complete"),
+        (ExaSchemaError("agent_run_9", "1 validation error"),
+         "did not match the"),
     ],
 )
 def test_recon_error_rendering(patch_client, exc, needle):
@@ -264,6 +272,42 @@ def test_discover_error_rendering(patch_client):
     assert res.exit_code != 0
     assert "Traceback" not in res.output
     assert "concurren" in res.output.lower() or "rate" in res.output.lower()
+
+
+@pytest.mark.parametrize(
+    "exc, needle",
+    [
+        (ExaRunFailedError("agent_run_9", "errored", False, 0.07), "did not complete"),
+        (ExaSchemaError("agent_run_9", "1 validation error"), "did not match the"),
+    ],
+)
+def test_discover_typed_run_errors_render_as_prompts(patch_client, exc, needle):
+    # C1: discover must also surface ExaRunFailedError / ExaSchemaError as
+    # friendly prompts (no traceback), with _emit unreachable when except fires.
+    patch_client(FakeClient(raises=exc))
+    runner = CliRunner()
+    res = runner.invoke(exa_cli.main, ["discover", "--icp", "x", "--max-items", "3"])
+    assert res.exit_code != 0
+    assert "Traceback" not in res.output
+    assert needle in res.output.lower()
+
+
+def test_discover_unreadable_skills_inventory_renders_as_prompt(
+    patch_client, tmp_path
+):
+    # C1(4): a skills-inventory file that exists at parse time but is unreadable
+    # at read time (here invalid UTF-8) routes through _fail, not a traceback.
+    patch_client(FakeClient(discover=(_discover_result(), None, _cost())))
+    bad = tmp_path / "skills-inventory.md"
+    bad.write_bytes(b"\xff\xfe not utf-8 \x80")
+    runner = CliRunner()
+    res = runner.invoke(
+        exa_cli.main,
+        ["discover", "--skills-inventory", str(bad), "--max-items", "3"],
+    )
+    assert res.exit_code != 0
+    assert "Traceback" not in res.output
+    assert "skills-inventory" in res.output.lower()
 
 
 def test_missing_api_key_renders_without_injected_client(monkeypatch):
@@ -289,6 +333,108 @@ def test_recon_run_dir_is_optional(patch_client):
         exa_cli.main, ["recon", "--company", "A", "--role", "r", "--url", "u"]
     )
     assert res.exit_code == 0, res.output
+
+
+# --------------------------------------------------------------------------- #
+# C2: the production CLI path actually wires a CostAccountant, so a cost cap is
+# enforced (and surfaces as a typed prompt) on the shipped Bash path — not just
+# when a test injects an accountant. These tests exercise the REAL _build_client
+# (no patch), with a fake exa-py client and a per-day cap forced low via env.
+# --------------------------------------------------------------------------- #
+class _FakeRun:
+    def __init__(self, id, status, structured=None, grounding=None,
+                 cost_dollars=None, usage=None):
+        self.id = id
+        self.status = status
+        self.output = type(
+            "O", (), {"structured": structured, "grounding": grounding, "text": None}
+        )()
+        self.costDollars = cost_dollars
+        self.usage = usage
+
+
+class _FakeRuns:
+    def __init__(self, create, polls):
+        self._create = list(create)
+        self._polls = list(polls)
+
+    def create(self, **kwargs):
+        return self._create.pop(0)
+
+    def poll_until_finished(self, run_id, **kwargs):
+        return self._polls.pop(0)
+
+
+class _FakeExa:
+    def __init__(self, create, polls):
+        self.agent = type("A", (), {"runs": _FakeRuns(create, polls)})()
+
+
+def _recon_run(run_id, dollars):
+    return _FakeRun(
+        run_id, "completed",
+        structured={
+            "primary_contact": {"name": "Jane Doe", "title": "Head of Eng"},
+            "alternative_contacts": [],
+            "company_context": "ctx",
+        },
+        grounding=[],
+        cost_dollars={"total": dollars},
+        usage={"agentComputeUnits": 1.0},
+    )
+
+
+def test_cli_path_enforces_cost_cap(monkeypatch, tmp_path):
+    # The real _build_client must inject a CostAccountant so the shipped CLI
+    # path enforces the per-day cap. With the cap forced to $0.05 and a state
+    # file isolated to tmp_path, a $0.10 recon run trips the cap and surfaces as
+    # a typed CostCapExceeded rendered as a friendly prompt (no traceback).
+    fake = _FakeExa(
+        create=[_FakeRun("r1", "queued")],
+        polls=[_recon_run("r1", 0.10)],
+    )
+    monkeypatch.setattr(
+        "board_aggregator.exa_agent._default_client_factory", lambda: fake
+    )
+    monkeypatch.setenv("DOSSIER_EXA_PER_DAY_CAP", "0.05")
+    monkeypatch.setenv("DOSSIER_EXA_STATE_PATH", str(tmp_path / "state.json"))
+    runner = CliRunner()
+    res = runner.invoke(
+        exa_cli.main, ["recon", "--company", "A", "--role", "r", "--url", "u"]
+    )
+    assert res.exit_code != 0
+    assert "Traceback" not in res.output
+    assert "cap" in res.output.lower()
+
+
+def test_cli_path_per_day_cap_persists_across_invocations(monkeypatch, tmp_path):
+    # Two separate CLI invocations (separate processes in production) share the
+    # date-keyed state file: the first run's spend counts against the second.
+    state = tmp_path / "state.json"
+    monkeypatch.setenv("DOSSIER_EXA_PER_DAY_CAP", "0.15")
+    monkeypatch.setenv("DOSSIER_EXA_STATE_PATH", str(state))
+
+    fake1 = _FakeExa(create=[_FakeRun("r1", "queued")], polls=[_recon_run("r1", 0.10)])
+    monkeypatch.setattr(
+        "board_aggregator.exa_agent._default_client_factory", lambda: fake1
+    )
+    runner = CliRunner()
+    res1 = runner.invoke(
+        exa_cli.main, ["recon", "--company", "A", "--role", "r", "--url", "u"]
+    )
+    assert res1.exit_code == 0, res1.output  # 0.10 <= 0.15, fine
+
+    # Second invocation: a fresh client loads 0.10 from state; another 0.10 trips.
+    fake2 = _FakeExa(create=[_FakeRun("r2", "queued")], polls=[_recon_run("r2", 0.10)])
+    monkeypatch.setattr(
+        "board_aggregator.exa_agent._default_client_factory", lambda: fake2
+    )
+    res2 = runner.invoke(
+        exa_cli.main, ["recon", "--company", "B", "--role", "r", "--url", "u"]
+    )
+    assert res2.exit_code != 0  # 0.20 > 0.15
+    assert "Traceback" not in res2.output
+    assert "cap" in res2.output.lower()
 
 
 def test_recon_writes_meta_to_run_dir(patch_client, tmp_path):

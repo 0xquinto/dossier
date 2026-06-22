@@ -21,24 +21,59 @@ does not validate / probe careers URLs — the agent runs ``probe-portal``
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import NoReturn
 
 import click
 
-from board_aggregator.exa_agent import ExaAgentClient, ExaAgentError
+from board_aggregator.exa_agent import CostAccountant, ExaAgentClient, ExaAgentError
 
 # §2 results-are-prompts: the structured return is size-capped so a stray giant
 # field can't blow up the agent's context. Long free-text fields are truncated.
 _MAX_TEXT_CHARS = 4000
 
+# §5 cost guardrails on the shipped Bash path (finding C2). The CLI is the
+# production face recon-3 / discoverer-6 reach, so it — not just the tests — must
+# wire a CostAccountant, or the three hard stops never run. Defaults are
+# overridable via env vars; the per-day total persists across invocations through
+# a date-keyed state file (counts/dollars only — no PII; gitignored).
+_DEFAULT_PER_RUN_CAP = 2.0
+_DEFAULT_PER_DAY_CAP = 50.0
+_DEFAULT_NO_PROGRESS_LIMIT = 3
+_DEFAULT_STATE_PATH = ".dossier-exa-cost.json"
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _build_accountant() -> CostAccountant:
+    """Build the cost accountant with env-overridable caps + persistent state."""
+    return CostAccountant(
+        per_run_cap=_env_float("DOSSIER_EXA_PER_RUN_CAP", _DEFAULT_PER_RUN_CAP),
+        per_day_cap=_env_float("DOSSIER_EXA_PER_DAY_CAP", _DEFAULT_PER_DAY_CAP),
+        no_progress_limit=int(
+            _env_float("DOSSIER_EXA_NO_PROGRESS_LIMIT", _DEFAULT_NO_PROGRESS_LIMIT)
+        ),
+        state_path=os.environ.get("DOSSIER_EXA_STATE_PATH", _DEFAULT_STATE_PATH),
+    )
+
 
 def _build_client(**kwargs) -> ExaAgentClient:
-    """Construct the shared client (default factory reads EXA_API_KEY).
+    """Construct the shared client with the §5 cost accountant injected.
 
     Pulled out as a seam so tests patch it with a fake instead of touching
-    ``exa-py`` or the network.
+    ``exa-py`` or the network. The accountant is what enforces the cost caps on
+    the production CLI path (finding C2) — an explicit ``accountant=`` kwarg wins.
     """
+    kwargs.setdefault("accountant", _build_accountant())
     return ExaAgentClient(**kwargs)
 
 
@@ -61,7 +96,8 @@ def _capped_result(result) -> dict:
 
 
 def _emit(result, grounding, cost, run_dir) -> None:
-    """Write the cost trace into run_dir (if given) and emit the JSON payload.
+    """Write the cost trace (exa-cost.json, consumed into lead-0's meta.json)
+    into run_dir (if given) and emit the JSON payload.
 
     ``grounding`` is surfaced as a SEPARATE audit trace (§3), never folded into
     the answer. The whole payload is structured JSON — the agent renders it.
@@ -135,7 +171,8 @@ def recon(company, role, url, run_dir, effort, enrich) -> None:
         )
     except ExaAgentError as exc:
         _fail(exc)
-    _emit(result, grounding, cost, run_dir)
+    else:
+        _emit(result, grounding, cost, run_dir)
 
 
 @main.command()
@@ -183,7 +220,8 @@ def discover(icp, skills_inventory, max_items, effort, run_dir) -> None:
         )
     except ExaAgentError as exc:
         _fail(exc)
-    _emit(result, grounding, cost, run_dir)
+    else:
+        _emit(result, grounding, cost, run_dir)
 
 
 # --------------------------------------------------------------------------- #
@@ -198,7 +236,13 @@ def _resolve_icp(icp, skills_inventory) -> str:
     if icp:
         parts.append(icp)
     if skills_inventory:
-        parts.append(Path(skills_inventory).read_text().strip())
+        try:
+            parts.append(Path(skills_inventory).read_text().strip())
+        except (OSError, UnicodeDecodeError) as exc:
+            raise click.ClickException(
+                f"Could not read --skills-inventory file {skills_inventory!s}: "
+                f"{exc}. Check the path is readable UTF-8 text, or pass --icp instead."
+            ) from exc
     if not parts:
         raise click.UsageError(
             "Provide --icp and/or --skills-inventory: discover needs an ICP to "

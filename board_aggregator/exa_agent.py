@@ -25,8 +25,14 @@ tests run with an injected fake and no real package or network.
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import os
+import re
+from datetime import date
+from pathlib import Path
 from typing import Any, Callable
+
+from pydantic import ValidationError
 
 from board_aggregator.exa_schemas import (
     DiscoverResult,
@@ -109,6 +115,29 @@ class CircuitBreakerOpen(ExaAgentError):
         )
 
 
+class ExaRunFailedError(ExaAgentError):
+    """A run reached the boundary non-completed or empty (still metered, §5)."""
+
+    def __init__(self, run_id: str, status: Any, has_structured: bool, dollars: float) -> None:
+        super().__init__(
+            f"Exa Agent run {run_id} did not complete successfully "
+            f"(status={status!r}, structured={'present' if has_structured else 'empty'}). "
+            f"Metered ${dollars:.4f}. The run produced no usable result — lower "
+            "effort/maxItems, check Exa availability, or retry before relying on output."
+        )
+
+
+class ExaSchemaError(ExaAgentError):
+    """The structured output did not match the expected result schema."""
+
+    def __init__(self, run_id: str, detail: str) -> None:
+        super().__init__(
+            f"Exa Agent run {run_id} returned output that did not match the "
+            f"expected schema. The run is unusable as-is — this is a provider/schema "
+            f"mismatch, not your input. Retry or report if it persists. Detail: {detail}"
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Cost accounting (§5): three hard stops + meter-on-failure
 # --------------------------------------------------------------------------- #
@@ -130,6 +159,7 @@ class CostAccountant:
         per_run_cap: float = 2.0,
         per_day_cap: float = 50.0,
         no_progress_limit: int = 3,
+        state_path: "str | os.PathLike[str] | None" = None,
     ) -> None:
         self.max_runs = max_runs
         self.per_run_cap = per_run_cap
@@ -140,6 +170,45 @@ class CostAccountant:
         self.failed_count = 0
         self.total_dollars = 0.0
         self._consecutive_no_progress = 0
+
+        # Per-day spend must survive across processes/CLI invocations or the cap
+        # resets to $0 every Bash call (finding C2). A date-keyed state file
+        # carries today's running total only — counts/dollars, no PII. Missing or
+        # corrupt state starts fresh rather than failing closed.
+        self._state_path = Path(state_path) if state_path else None
+        if self._state_path is not None:
+            self.total_dollars = self._load_day_total()
+
+    def _today(self) -> str:
+        return date.today().isoformat()
+
+    def _load_day_total(self) -> float:
+        """Load today's persisted spend; stale-date / missing / corrupt → 0.0."""
+        try:
+            data = json.loads(self._state_path.read_text())
+        except (OSError, ValueError):
+            return 0.0
+        if not isinstance(data, dict) or data.get("date") != self._today():
+            return 0.0
+        try:
+            return float(data.get("total_dollars", 0.0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _save_day_total(self) -> None:
+        """Persist today's running total. Best-effort: a write failure never
+        aborts a run (the in-process caps still hold)."""
+        if self._state_path is None:
+            return
+        try:
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            self._state_path.write_text(
+                json.dumps(
+                    {"date": self._today(), "total_dollars": round(self.total_dollars, 6)}
+                )
+            )
+        except OSError:
+            pass
 
     def precheck(self) -> None:
         """Raise before starting a run if a run-count or day cap is already hit."""
@@ -176,6 +245,10 @@ class CostAccountant:
         else:
             self._consecutive_no_progress += 1
 
+        # Persist the new day total before evaluating the caps so an over-cap
+        # run is recorded across invocations (meter-on-failure parity, §5).
+        self._save_day_total()
+
         # Hard stops, evaluated after metering.
         if dollars > self.per_run_cap:
             raise CostCapExceeded(
@@ -194,7 +267,10 @@ class CostAccountant:
             )
 
     def as_dict(self) -> dict[str, Any]:
-        """Cost summary for meta.json. Carries no 'verified' flag (§3)."""
+        """Cost summary for exa-cost.json (consumed into lead-0's meta.json).
+
+        Carries no 'verified' flag (§3).
+        """
         return {
             "total_dollars": round(self.total_dollars, 6),
             "run_count": self.run_count,
@@ -220,11 +296,30 @@ def _default_client_factory() -> Any:
     return Exa(api_key=api_key)
 
 
+_RATE_LIMIT_PHRASES = (
+    "rate limit",
+    "too many requests",
+    "quota exceeded",
+    "concurren",  # concurrency cap refusals ("concurrency limit reached")
+)
+# Word-boundary 429 so a status code in a message counts but a "429" buried in a
+# URL/path (e.g. /v1/items/429) does not misclassify an unrelated error.
+_HTTP_429_RE = re.compile(r"(?<!\d)429(?!\d)")
+
+
 def _is_rate_limit(exc: Exception) -> bool:
+    # Prefer structured signals: an HTTP status_code attribute is unambiguous.
     if getattr(exc, "status_code", None) == 429:
         return True
+    # exa-py surfaces rate limits via its own exception type when identifiable.
+    if type(exc).__name__ in ("RateLimitError", "RateLimitException"):
+        return True
     text = str(exc).lower()
-    return "429" in text or "rate limit" in text or "too many requests" in text
+    if any(phrase in text for phrase in _RATE_LIMIT_PHRASES):
+        return True
+    # Conservative fallback: a word-boundary 429 in the message. A bare "429"
+    # inside a longer number or a URL path does not count.
+    return bool(_HTTP_429_RE.search(text))
 
 
 # --------------------------------------------------------------------------- #
@@ -262,7 +357,12 @@ class ExaAgentClient:
         self.poll_interval_ms = poll_interval_ms
         self.timeout_s = timeout_s
 
+        # Sub-call breaker: trips inside the retry loop (per-attempt failures).
         self._consecutive_failures = 0
+        # Run-level breaker (finding C2): counts whole `_run` failures and resets
+        # ONLY on a full `_run` success. A sub-call success (create-ok / poll-fail)
+        # must not reset it, or the create-ok/poll-fail pattern never trips.
+        self._consecutive_run_failures = 0
 
     # -- public research jobs ------------------------------------------------ #
     def run_recon(
@@ -344,28 +444,76 @@ class ExaAgentClient:
         if self.accountant is not None:
             self.accountant.precheck()
 
+        # Two breakers guard a call. The sub-call breaker (legacy) trips on a
+        # storm of per-attempt failures; the run-level breaker (finding C2) trips
+        # on N consecutive whole-run failures regardless of which sub-step failed
+        # — it is the one that catches the create-ok / poll-fail pattern, which a
+        # sub-call success would otherwise keep resetting.
         self._check_breaker()
+        self._check_run_breaker()
 
-        # Write step (create the run) — low retry ceiling, fail loudly.
-        run = self._with_retries(
-            lambda: self._client.agent.runs.create(
-                query=query,
-                output_schema=output_schema,
-                effort=effort,
-                **create_kwargs,
-            ),
-            self.write_retries,
-        )
+        try:
+            result = self._do_run(query, output_schema, effort, model, **create_kwargs)
+        except ExaAgentError:
+            # A whole run failed (create/poll/validate). Count it toward the
+            # run-level breaker — a sub-call success inside it must not have reset
+            # this counter.
+            self._consecutive_run_failures += 1
+            raise
+        else:
+            # A full run succeeded end to end: clear the run-level breaker.
+            self._consecutive_run_failures = 0
+            return result
 
-        # Read step (poll to terminal) — higher retry ceiling. run.id is the
-        # idempotency key: a retried poll resumes the same run, never a new one.
-        run_id = getattr(run, "id", None)
-        finished = self._with_retries(
-            lambda: self._client.agent.runs.poll_until_finished(
-                run_id, poll_interval=self.poll_interval_ms
-            ),
-            self.read_retries,
-        )
+    def _do_run(
+        self,
+        query: str,
+        output_schema: dict[str, Any],
+        effort: str,
+        model: type,
+        **create_kwargs: Any,
+    ) -> tuple[Any, Any, dict[str, Any]]:
+        """The create→poll→validate body, wrapped by ``_run`` for the breaker."""
+        # Write step (create the run) — low retry ceiling, fail loudly. Read step
+        # (poll to terminal) — higher retry ceiling. run.id is the idempotency
+        # key: a retried poll resumes the same run, never a new one. Any non-typed
+        # error that survives the retry ceiling (e.g. a bare/builtin TimeoutError
+        # from a worker) is wrapped into a typed ExaAgentError at the boundary so
+        # nothing untyped escapes to the CLI (errors-are-prompts, §2).
+        try:
+            # A create-step timeout is TERMINAL — never retried. A retried create
+            # could spawn a second billable run at Exa whose id we never captured
+            # (idempotency only covers the POLL step, which re-polls run.id). One
+            # such timeout may leave a single orphaned billable run at Exa: a
+            # documented tradeoff, preferred over silently double-billing (I3).
+            run = self._with_retries(
+                lambda: self._client.agent.runs.create(
+                    query=query,
+                    output_schema=output_schema,
+                    effort=effort,
+                    **create_kwargs,
+                ),
+                self.write_retries,
+                terminal_on_timeout=True,
+            )
+
+            run_id = getattr(run, "id", None)
+            finished = self._with_retries(
+                lambda: self._client.agent.runs.poll_until_finished(
+                    run_id, poll_interval=self.poll_interval_ms
+                ),
+                self.read_retries,
+            )
+        except ExaAgentError:
+            raise
+        except Exception as exc:
+            # _with_retries already recorded the failure at the cap; only wrap
+            # the bare/builtin error into a typed one (do not double-count).
+            raise ExaAgentError(
+                "The Exa Agent call failed with an unexpected error after the "
+                f"retry ceiling: {type(exc).__name__}: {exc}. Check Exa "
+                "availability / credentials before retrying."
+            ) from exc
 
         cost = self._extract_cost(finished, run_id)
         status = getattr(finished, "status", None)
@@ -382,22 +530,35 @@ class ExaAgentClient:
             )
 
         if not succeeded:
-            raise RuntimeError(
-                f"Exa Agent run {cost['run_id']} did not complete successfully "
-                f"(status={status!r}, structured={'present' if structured else 'empty'}). "
-                f"Metered ${cost['dollars']:.4f}."
+            raise ExaRunFailedError(
+                run_id=cost["run_id"],
+                status=status,
+                has_structured=structured is not None,
+                dollars=cost["dollars"],
             )
 
-        result = model.model_validate(structured)
+        try:
+            result = model.model_validate(structured)
+        except ValidationError as exc:
+            raise ExaSchemaError(cost["run_id"], str(exc)) from exc
         grounding = self._grounding(finished)
         return result, grounding, cost
 
-    def _with_retries(self, call: Callable[[], Any], retries: int) -> Any:
+    def _with_retries(
+        self,
+        call: Callable[[], Any],
+        retries: int,
+        terminal_on_timeout: bool = False,
+    ) -> Any:
         """Run ``call`` with a bounded retry ceiling. Fails loudly at the cap.
 
         Rate-limit / concurrency refusals are mapped to a typed prompt error and
         NOT retried (retrying a concurrency cap just burns the cap). A trip of
         the breaker on the final failure surfaces on the next call.
+
+        ``terminal_on_timeout`` (the create step) makes an ``ExaTimeoutError``
+        non-retryable: retrying a create could spawn a duplicate billable run
+        (I3). Poll-step timeouts are safe to retry — they re-poll the same run id.
         """
         attempt = 0
         while True:
@@ -409,6 +570,9 @@ class ExaAgentClient:
                 if _is_rate_limit(exc):
                     self._record_failure()
                     raise RateLimitError() from exc
+                if terminal_on_timeout and isinstance(exc, ExaTimeoutError):
+                    self._record_failure()
+                    raise
                 attempt += 1
                 if attempt > retries:
                     self._record_failure()
@@ -447,6 +611,10 @@ class ExaAgentClient:
         if self._consecutive_failures >= self.breaker_threshold:
             raise CircuitBreakerOpen()
 
+    def _check_run_breaker(self) -> None:
+        if self._consecutive_run_failures >= self.breaker_threshold:
+            raise CircuitBreakerOpen()
+
     # -- response parsing ---------------------------------------------------- #
     @staticmethod
     def _structured(run: Any) -> Any:
@@ -462,21 +630,24 @@ class ExaAgentClient:
             return None
         return getattr(output, "grounding", None)
 
-    @staticmethod
-    def _extract_cost(run: Any, fallback_id: str | None) -> dict[str, Any]:
-        """Parse costDollars + ACU + searches + contacts into a meta.json dict.
+    def _extract_cost(self, run: Any, fallback_id: str | None) -> dict[str, Any]:
+        """Parse costDollars + ACU + searches + contacts into the exa-cost.json
+        dict (consumed into lead-0's meta.json).
+
+        Cost must never under-report a billed run (§5): a real spend metered as
+        $0 caps compute against zero. Three distinct shapes are handled:
+
+        - ``costDollars`` present and parseable → use it verbatim.
+        - ``costDollars`` absent/None but usage present → estimate from the
+          component breakdown (1 ACU = $0.10, $0.005/search, $0.02/email,
+          $0.07/phone) and flag ``estimated``.
+        - ``costDollars`` present but unparseable → do NOT silently coerce to 0;
+          fail closed by metering at the per-run cap and flag ``unknown`` so the
+          caps stay enforceable rather than billing a free pass.
 
         Carries no 'verified' flag (§3): cost is a meter, not a verifier.
         """
         run_id = getattr(run, "id", None) or fallback_id
-
-        cost_dollars = getattr(run, "costDollars", None)
-        if isinstance(cost_dollars, dict):
-            dollars = float(cost_dollars.get("total", 0.0) or 0.0)
-        elif cost_dollars is not None:
-            dollars = float(cost_dollars)
-        else:
-            dollars = 0.0
 
         usage = getattr(run, "usage", None) or {}
         if not isinstance(usage, dict):
@@ -486,10 +657,54 @@ class ExaAgentClient:
                 "contacts": getattr(usage, "contacts", None),
             }
 
-        return {
+        cost: dict[str, Any] = {
             "run_id": run_id,
-            "dollars": dollars,
             "acu": usage.get("agentComputeUnits"),
             "searches": usage.get("searches"),
             "contacts": usage.get("contacts"),
         }
+
+        cost_dollars = getattr(run, "costDollars", None)
+        raw = cost_dollars.get("total") if isinstance(cost_dollars, dict) else cost_dollars
+
+        if raw is None:
+            # No billed total reported: estimate from components rather than $0.
+            cost["dollars"] = self._estimate_dollars(usage)
+            cost["estimated"] = True
+        else:
+            try:
+                cost["dollars"] = float(raw)
+            except (TypeError, ValueError):
+                # Present but unparseable: fail closed at the per-run cap.
+                cost["dollars"] = self._per_run_cap()
+                cost["unknown"] = True
+
+        return cost
+
+    def _per_run_cap(self) -> float:
+        """The per-run dollar ceiling used as the fail-closed cost on unknowns."""
+        if self.accountant is not None:
+            return self.accountant.per_run_cap
+        return CostAccountant().per_run_cap
+
+    @staticmethod
+    def _estimate_dollars(usage: dict[str, Any]) -> float:
+        """Component-math fallback: 1 ACU=$0.10, $0.005/search, $0.02/email,
+        $0.07/phone. Missing/unparseable components count as zero.
+        """
+
+        def _num(value: Any) -> float:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return 0.0
+
+        contacts = usage.get("contacts") or {}
+        if not isinstance(contacts, dict):
+            contacts = {}
+        return (
+            _num(usage.get("agentComputeUnits")) * 0.10
+            + _num(usage.get("searches")) * 0.005
+            + _num(contacts.get("emails")) * 0.02
+            + _num(contacts.get("phones")) * 0.07
+        )

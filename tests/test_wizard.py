@@ -101,8 +101,15 @@ def test_setup_exa_credential_no_mcp_add(monkeypatch, tmp_path):
             assert "mcp" not in argv
 
     # The key must be persisted as an EXA_API_KEY export in the shell profile.
+    # The value round-trips through a real shell (shlex.quote keeps it safe).
     written = profile.read_text()
-    assert 'export EXA_API_KEY="sk-exa-test-key"' in written
+    assert "export EXA_API_KEY=" in written
+    result = subprocess.run(
+        ["bash", "-c", f"source {profile} && printf %s \"$EXA_API_KEY\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout == "sk-exa-test-key"
 
 
 def test_setup_exa_credential_skips_when_already_set(monkeypatch, tmp_path):
@@ -132,6 +139,51 @@ def test_setup_exa_credential_skip_on_empty_input(monkeypatch, tmp_path):
 
     setup_exa_credential()
     assert not profile.exists()
+
+
+def test_setup_exa_credential_idempotent_no_duplicate_export(monkeypatch, tmp_path):
+    """Re-running the wizard must not append a second EXA_API_KEY export line.
+
+    A second run within the same shell session won't have EXA_API_KEY in the
+    process env (the export only lands in the profile), so idempotency has to be
+    detected from the profile content, not the env var."""
+    from setup_wizard import setup_exa_credential
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    monkeypatch.setattr("builtins.input", lambda _: "sk-exa-test-key")
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
+    setup_exa_credential()
+    setup_exa_credential()
+
+    written = profile.read_text()
+    assert written.count("export EXA_API_KEY=") == 1
+
+
+def test_setup_exa_credential_quotes_special_chars(monkeypatch, tmp_path):
+    """A key with shell-special characters must be persisted safely so it can't
+    break the profile when sourced."""
+    from setup_wizard import setup_exa_credential
+
+    monkeypatch.delenv("EXA_API_KEY", raising=False)
+    nasty = 'sk$(rm -rf /)"; echo pwned #'
+    monkeypatch.setattr("builtins.input", lambda _: nasty)
+    profile = tmp_path / ".zshrc"
+    monkeypatch.setattr("setup_wizard.shell_profile_path", lambda: profile)
+
+    setup_exa_credential()
+
+    written = profile.read_text()
+    # Exactly one export line, and the value round-trips through a real shell.
+    assert written.count("export EXA_API_KEY=") == 1
+    result = subprocess.run(
+        ["bash", "-c", f"source {profile} && printf %s \"$EXA_API_KEY\""],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout == nasty
 
 
 def test_validate_install_success():

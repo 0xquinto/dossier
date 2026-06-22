@@ -11,7 +11,7 @@ repo. Nothing here fabricates results — live entrypoints raise via
 | File | Role | Status |
 |---|---|---|
 | `dataset.py` | `EvalRow` shape + JSONL loader | ready (deterministic) |
-| `fixtures/example.jsonl` | 2-3 rows showing the real row shape | ready (shape ref, **not** a curated set) |
+| `fixtures/example.jsonl` | three rows showing the real row shape | ready (shape ref, **not** a curated set) |
 | `ab_runner.py` | A/B: Search-API-recon vs Exa-Agent-recon | **skeleton — blocked on keys** |
 | `attack_harness.py` | dynamic injection/PII attack slice | **skeleton — blocked on keys** |
 | `../../tests/test_evals_scaffold.py` | deterministic coverage + live skips | ready |
@@ -71,5 +71,5 @@ implementation checklist.
 ## Why datasets live outside the repo
 
 Curated recon rows carry **real contact PII** (the one-way boundary in the
-node charter). The repo ships only the synthetic `example.example.com` shape
+node charter). The repo ships only the synthetic `*.example.com` shape
 reference; real sets are pointed at via `DOSSIER_EVAL_DATASET`.

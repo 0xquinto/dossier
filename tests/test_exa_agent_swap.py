@@ -57,13 +57,26 @@ def test_discoverer_6_calls_dossier_research_discover():
     assert "Bash" in _frontmatter(DISCOVERER_6)
 
 
-# --- §1 capability widening: recon-3 gains Bash, scoped to dossier-research ---
+# --- §1 capability widening: recon-3 gains Bash, instructed to use it
+#     only for dossier-research + fetch tools (behavioral, not a false
+#     harness-enforcement claim — finding I2) ---
 
-def test_recon_3_bash_scoped_to_dossier_research():
+def test_recon_3_bash_instructed_to_dossier_research_only():
+    text = _read(RECON_3)
     front = _frontmatter(RECON_3)
     assert "Bash" in front
-    # The scoping note must appear so the capability stays narrow (§2).
-    assert "dossier-research" in front
+    # recon-3 must be *instructed* to keep Bash to dossier-research only.
+    assert "dossier-research" in text
+    # Truthfulness: it must NOT claim the harness/settings enforce a
+    # per-agent Bash scope — there is no such scoping (finding I2).
+    lower = text.lower()
+    assert "settings allowlist" not in lower, (
+        "recon-3 must not claim a settings-allowlist Bash scope that "
+        "does not exist (finding I2)"
+    )
+    assert "scoped to" not in lower, (
+        "recon-3 must not claim its Bash is harness-scoped (finding I2)"
+    )
 
 
 # --- §3: recon-3 retains its OWN-fetch verification capability ---

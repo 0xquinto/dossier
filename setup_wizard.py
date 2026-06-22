@@ -15,6 +15,7 @@ characters into mojibake.
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -248,6 +249,22 @@ def exa_credential_exists() -> bool:
     return bool(os.environ.get("EXA_API_KEY"))
 
 
+def profile_has_exa_export(profile: Path) -> bool:
+    """Return True if the shell profile already exports EXA_API_KEY.
+
+    A second wizard run in the same shell session won't have EXA_API_KEY in the
+    process env (the export only lands in the profile, picked up by *new*
+    shells), so idempotency is decided from the profile content — not the env
+    var — to avoid appending a duplicate export line.
+    """
+    if not profile.exists():
+        return False
+    for line in profile.read_text(encoding="utf-8").splitlines():
+        if line.strip().startswith("export EXA_API_KEY="):
+            return True
+    return False
+
+
 def shell_profile_path() -> Path:
     """Return the shell profile file the EXA_API_KEY export should be appended to.
 
@@ -274,6 +291,12 @@ def setup_exa_credential():
         print("  EXA_API_KEY already set ✓")
         return
 
+    profile = shell_profile_path()
+    if profile_has_exa_export(profile):
+        print(f"  EXA_API_KEY already exported in {profile} ✓")
+        print("  Open a new shell (or re-source the profile) to pick it up.")
+        return
+
     print("  An Exa API key is required for Phase 3 (contact research).")
     print("  Get a free key at https://dashboard.exa.ai/home")
     exa_key = input("  Exa API key (Enter to skip): ").strip()
@@ -283,9 +306,11 @@ def setup_exa_credential():
         print('    export EXA_API_KEY="<key>"')
         return
 
-    profile = shell_profile_path()
+    # Quote the value so a key with shell-special characters can't break the
+    # profile when it's sourced. shlex.quote yields a POSIX-safe single-quoted
+    # token; the export-line prefix is what profile_has_exa_export matches on.
     with open(profile, "a", encoding="utf-8") as fh:
-        fh.write(f'\nexport EXA_API_KEY="{exa_key}"\n')
+        fh.write(f"\nexport EXA_API_KEY={shlex.quote(exa_key)}\n")
     print(f"  EXA_API_KEY exported in {profile} ✓")
     print("  Open a new shell (or re-source the profile) to pick it up.")
 

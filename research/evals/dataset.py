@@ -2,7 +2,7 @@
 
 A dataset row is one held-out recon task with a ground-truth contact, used by
 the A/B runner to score Search-API-recon vs Exa-Agent-recon on the *same*
-input. ``EvalRow`` is the real shape; ``example.jsonl`` ships 2-3 rows as a
+input. ``EvalRow`` is the real shape; ``example.jsonl`` ships three rows as a
 shape reference, NOT a curated eval set.
 
 Sizing (spec §7, "pick the job, not the number"):
