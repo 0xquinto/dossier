@@ -15,8 +15,10 @@ package and no network. Every test below maps to a spec requirement:
 
 from __future__ import annotations
 
+import json
+
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from board_aggregator.exa_agent import (
     CircuitBreakerOpen,
@@ -122,6 +124,56 @@ def _completed_recon_run(run_id="agent_run_1"):
         cost_dollars={"total": 0.10},
         usage={"agentComputeUnits": 1.0, "searches": 3, "contacts": {"emails": 1, "phones": 0}},
     )
+
+
+# --------------------------------------------------------------------------- #
+# Grounding normalization (regression: a live smoke run surfaced SDK objects)
+# --------------------------------------------------------------------------- #
+def test_grounding_sdk_objects_are_normalized_to_jsonable():
+    """exa-py returns output.grounding as SDK objects, not dicts.
+
+    A live recon run crashed in the CLI's json.dumps with 'AgentGroundingEntry
+    is not JSON serializable'. The client must normalize grounding at the SDK
+    boundary so ExaRun.grounding is always serializable. Every prior fake
+    returned plain dicts and missed this — so model both an SDK-style pydantic
+    entry and a plain attribute object here.
+    """
+
+    class _SdkGroundingEntry(BaseModel):  # mimics exa-py's pydantic entry
+        field: str
+        url: str
+
+    class _PlainEntry:  # a non-pydantic SDK object (exercises the __dict__ path)
+        def __init__(self, field: str, url: str) -> None:
+            self.field = field
+            self.url = url
+
+    grounding_objs = [
+        _SdkGroundingEntry(field="primary_contact.email", url="https://acme.com/team"),
+        _PlainEntry("company_context", "https://acme.com/about"),
+    ]
+    fake = FakeExaClient(
+        create_runs=[FakeRun("r", "queued")],
+        poll_runs=[
+            FakeRun(
+                "r",
+                "completed",
+                structured=_recon_structured(),
+                grounding=grounding_objs,
+                cost_dollars={"total": 0.10},
+            )
+        ],
+    )
+    client = ExaAgentClient(client=fake)
+    run = client.run_recon(company="Acme", role="Eng", url="u")
+
+    # The exact payload the CLI emits must be JSON-serializable (the crash site).
+    json.dumps({"result": run.result.model_dump(), "grounding": run.grounding, "cost": run.cost})
+    # …and the data is preserved as plain dicts, not stringified away.
+    assert run.grounding == [
+        {"field": "primary_contact.email", "url": "https://acme.com/team"},
+        {"field": "company_context", "url": "https://acme.com/about"},
+    ]
 
 
 # --------------------------------------------------------------------------- #
