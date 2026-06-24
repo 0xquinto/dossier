@@ -375,6 +375,18 @@ def _jsonable(value: Any) -> Any:
     return str(value)
 
 
+def _pluck(d: Any, *names: str) -> Any:
+    """First non-None value among the given keys. The real exa-py models yield
+    snake_case via ``model_dump()`` (``agent_compute_units``); raw API JSON uses
+    the camelCase aliases (``agentComputeUnits``). Pass snake first, camel as
+    fallback, so both shapes work (the live-smoke mock-vs-real fix)."""
+    if isinstance(d, dict):
+        for n in names:
+            if d.get(n) is not None:
+                return d.get(n)
+    return None
+
+
 # --------------------------------------------------------------------------- #
 # The client
 # --------------------------------------------------------------------------- #
@@ -708,22 +720,31 @@ class ExaAgentClient:
         """
         run_id = getattr(run, "id", None) or fallback_id
 
-        usage = getattr(run, "usage", None) or {}
+        # exa-py returns usage as an AgentUsage model (snake_case attrs); normalize
+        # to a plain dict so the snake/camel reads below are shape-agnostic.
+        usage = _jsonable(getattr(run, "usage", None))
         if not isinstance(usage, dict):
-            usage = {
-                "agentComputeUnits": getattr(usage, "agentComputeUnits", None),
-                "searches": getattr(usage, "searches", None),
-                "contacts": getattr(usage, "contacts", None),
-            }
+            usage = {}
 
+        # Real exa-py AgentUsage fields are agent_compute_units / searches / emails
+        # / phone_numbers (snake); there is no nested `contacts`. Build the
+        # exa-cost.json `contacts` shape from the real per-type counts.
         cost: dict[str, Any] = {
             "run_id": run_id,
-            "acu": usage.get("agentComputeUnits"),
-            "searches": usage.get("searches"),
-            "contacts": usage.get("contacts"),
+            "acu": _pluck(usage, "agent_compute_units", "agentComputeUnits"),
+            "searches": _pluck(usage, "searches"),
+            "contacts": {
+                "emails": _pluck(usage, "emails"),
+                "phones": _pluck(usage, "phone_numbers", "phoneNumbers"),
+            },
         }
 
-        cost_dollars = getattr(run, "costDollars", None)
+        # Real AgentRun attribute is `cost_dollars` (alias `costDollars` is
+        # JSON-only); read snake first, fall back to the camel alias for raw JSON.
+        cd = getattr(run, "cost_dollars", None)
+        if cd is None:
+            cd = getattr(run, "costDollars", None)
+        cost_dollars = _jsonable(cd)
         raw = cost_dollars.get("total") if isinstance(cost_dollars, dict) else cost_dollars
 
         if raw is None:
@@ -758,12 +779,9 @@ class ExaAgentClient:
             except (TypeError, ValueError):
                 return 0.0
 
-        contacts = usage.get("contacts") or {}
-        if not isinstance(contacts, dict):
-            contacts = {}
         return (
-            _num(usage.get("agentComputeUnits")) * 0.10
-            + _num(usage.get("searches")) * 0.005
-            + _num(contacts.get("emails")) * 0.02
-            + _num(contacts.get("phones")) * 0.07
+            _num(_pluck(usage, "agent_compute_units", "agentComputeUnits")) * 0.10
+            + _num(_pluck(usage, "searches")) * 0.005
+            + _num(_pluck(usage, "emails")) * 0.02
+            + _num(_pluck(usage, "phone_numbers", "phoneNumbers")) * 0.07
         )

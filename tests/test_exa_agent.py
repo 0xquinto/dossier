@@ -122,7 +122,7 @@ def _completed_recon_run(run_id="agent_run_1"):
         grounding=[{"field": "primary_contact.email", "url": "https://acme.com/team"}],
         text="Found Jane Doe.",
         cost_dollars={"total": 0.10},
-        usage={"agentComputeUnits": 1.0, "searches": 3, "contacts": {"emails": 1, "phones": 0}},
+        usage={"agent_compute_units": 1.0, "searches": 3, "emails": 1, "phone_numbers": 0},
     )
 
 
@@ -277,6 +277,42 @@ def test_cost_extraction_parses_all_components():
     assert cost["run_id"] == "r"
 
 
+def test_extract_cost_reads_real_exapy_2_14_snake_shape():
+    """Regression guard (cost-field-mapping spec): real exa-py 2.14 AgentUsage /
+    AgentCostDollars use snake_case attrs — _extract_cost must read the billed
+    cost_dollars.total and the snake usage, never silently estimate. Runs only
+    where exa-py is installed (the dossier venv); skipped otherwise."""
+    import importlib
+    import pkgutil
+
+    exa_py = pytest.importorskip("exa_py")
+    models: dict = {}
+
+    def _scan(modname):
+        try:
+            mod = importlib.import_module(modname)
+        except Exception:
+            return
+        for n, o in vars(mod).items():
+            if isinstance(o, type) and hasattr(o, "model_fields"):
+                models.setdefault(n, o)
+
+    _scan("exa_py")
+    for _, mn, _ in pkgutil.walk_packages(exa_py.__path__, "exa_py."):
+        _scan(mn)
+
+    cd = models["AgentCostDollars"].model_construct(total=0.35)
+    us = models["AgentUsage"].model_construct(
+        agent_compute_units=1.5, searches=4, emails=3, phone_numbers=1)
+    run = FakeRun("r", "completed", structured=_recon_structured())
+    run.cost_dollars = cd  # real snake attribute (alias costDollars is JSON-only)
+    run.usage = us
+    client = ExaAgentClient(client=FakeExaClient())
+    cost = client._extract_cost(run, "r")
+    assert cost["dollars"] == pytest.approx(0.35) and not cost.get("estimated")
+    assert cost["acu"] == 1.5 and cost["contacts"] == {"emails": 3, "phones": 1}
+
+
 def test_cost_dict_for_meta_json_is_serializable():
     import json
 
@@ -296,10 +332,11 @@ def test_cost_dict_for_meta_json_is_serializable():
 class _ObjUsage:
     """Object-shaped usage (attributes), not a dict — Exa may return either."""
 
-    def __init__(self, agentComputeUnits=None, searches=None, contacts=None):
-        self.agentComputeUnits = agentComputeUnits
+    def __init__(self, agent_compute_units=None, searches=None, emails=None, phone_numbers=None):
+        self.agent_compute_units = agent_compute_units
         self.searches = searches
-        self.contacts = contacts
+        self.emails = emails
+        self.phone_numbers = phone_numbers
 
 
 @pytest.mark.parametrize(
@@ -329,8 +366,8 @@ def test_cost_absent_dollars_uses_component_math_dict_usage():
     # (acu*0.10 + searches*0.005 + emails*0.02 + phones*0.07), not coerced to 0.
     run = FakeRun("r", "completed", structured=_recon_structured(),
                   cost_dollars=None,
-                  usage={"agentComputeUnits": 2.0, "searches": 4,
-                         "contacts": {"emails": 3, "phones": 1}})
+                  usage={"agent_compute_units": 2.0, "searches": 4,
+                         "emails": 3, "phone_numbers": 1})
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
     cost = client.run_recon(company="Acme", role="Eng", url="u").cost
@@ -344,8 +381,8 @@ def test_cost_absent_dollars_uses_component_math_object_usage():
     # Same as above but usage arrives as an object (attributes), not a dict.
     run = FakeRun("r", "completed", structured=_recon_structured(),
                   cost_dollars=None,
-                  usage=_ObjUsage(agentComputeUnits=1.0, searches=2,
-                                  contacts={"emails": 1, "phones": 0}))
+                  usage=_ObjUsage(agent_compute_units=1.0, searches=2,
+                                  emails=1, phone_numbers=0))
     fake = FakeExaClient(create_runs=[FakeRun("r", "queued")], poll_runs=[run])
     client = ExaAgentClient(client=fake)
     cost = client.run_recon(company="Acme", role="Eng", url="u").cost
