@@ -11,16 +11,19 @@ from board_aggregator.models import JobPosting
 CSV_FIELDS = [
     "title", "company", "source", "job_url", "location", "is_remote",
     "salary_min", "salary_max", "salary_currency", "salary_interval",
-    "date_posted", "job_type", "description",
+    "date_posted", "job_type", "description", "hww_listed", "hww_process",
 ]
 
 # Compact machine-readable index fields (T2-7): the minimal subset agents
 # need to score postings without reading the full human-facing markdown.
 # Includes location + application_deadline because ranker-7 reads this index
-# exclusively yet scores location-fit and deadline-urgency (I3).
+# exclusively yet scores location-fit and deadline-urgency (I3). Includes
+# hww_listed/hww_process so ranker-7 can apply the tie-breaker bonus from
+# the index alone too (see board_aggregator.hww).
 INDEX_FIELDS = [
     "title", "company", "salary_min", "salary_max",
     "source", "job_url", "is_remote", "location", "application_deadline",
+    "hww_listed", "hww_process",
 ]
 
 
@@ -97,6 +100,10 @@ def write_markdown(jobs: list[JobPosting], path: Path, *, overwrite: bool = Fals
             lines.append(f"- **Job Type:** {job.job_type}")
         if job.description:
             lines.append(f"- **Description:** {job.description[:300]}")
+        if job.hww_listed:
+            lines.append("- **Hiring Without Whiteboards:** Listed (community-sourced, unverified)")
+            if job.hww_process:
+                lines.append(f"- **HWW Process Note:** {job.hww_process}")
         lines.append("---")
         lines.append("")
 
