@@ -19,7 +19,7 @@ When invoked, you receive a `RUN_DIR` path. ALL output MUST be written under the
    .venv/bin/python -c "import json, os; jobs = json.load(open(os.path.join(os.environ['RUN_DIR'], 'phase-1-scrape/all-postings-index.json'))); print(len(jobs), 'postings')"
    ```
 
-   Each record has `title`, `company`, `salary_min`, `salary_max`, `source`, `job_url`, `is_remote`, `location`, `application_deadline`. Location/deadline come from the index — score Remote/location fit and any deadline-urgency directly from these fields, no JD read needed. Parse the JSON and score every record. Only read `all-postings.md` (chunked with offset/limit) if you need a JD detail absent from the index.
+   Each record has `title`, `company`, `salary_min`, `salary_max`, `source`, `job_url`, `is_remote`, `location`, `application_deadline`, `hww_listed`, `hww_process`. Location/deadline come from the index — score Remote/location fit and any deadline-urgency directly from these fields, no JD read needed. Parse the JSON and score every record. Only read `all-postings.md` (chunked with offset/limit) if you need a JD detail absent from the index.
 4. Read `$RUN_DIR/meta.json`. If it carries `phase_1.candidate_archetype`, treat that as the candidate archetype (from lead-0's readiness check) and weight the user's matching skills-inventory sections accordingly when scoring — do not re-derive it from scratch.
 
 ## Archetype detection (pre-scoring step)
@@ -55,6 +55,10 @@ For each posting, score 0-100 across these dimensions:
 
 **Final score** = weighted sum. **Grade:** A (80-100), B (60-79), C (40-59), D (0-39).
 
+## Hiring Without Whiteboards signal
+
+`hww_listed` marks a company as listed on [poteto/hiring-without-whiteboards](https://github.com/poteto/hiring-without-whiteboards) — a community-sourced list of companies that run real-work interviews instead of whiteboard trivia. It is a lead, not a verified fact: do not change the weight table above. Treat it as a tie-breaker bonus only when ranking postings that are otherwise close. When `hww_listed` is true, carry `hww_process` into the per-posting output below so later phases (interview prep, pitch) see the process note.
+
 ## Output format
 
 Write to `$RUN_DIR/phase-2-rank/ranked-opportunities.md`:
@@ -76,6 +80,7 @@ A-tier: [N] | B-tier: [N] | C-tier: [N] | D-tier: [N]
 - **Growth (N/100):** [reasoning]
 - **Remote fit (N/100):** [reasoning]
 - **Why pursue:** [1-2 sentences]
+- **HWW note:** [hww_process, only when hww_listed is true and a note exists — omit this line otherwise]
 - **Job URL:** [link]
 
 ## B-Tier

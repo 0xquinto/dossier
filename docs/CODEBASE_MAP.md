@@ -122,6 +122,7 @@ graph TB
 │   ├── models.py                  # JobPosting Pydantic model + dedup_key
 │   ├── output.py                  # CSV + Markdown writers
 │   ├── runner.py                  # Two-stage orchestration: boards + portals, dedup, output
+│   ├── hww.py                     # Hiring Without Whiteboards signal: README parse, cache, enrich()
 │   ├── portal_scanner.py          # ATS API clients (Greenhouse, Ashby, Lever) + YAML state
 │   └── scrapers/
 │       ├── __init__.py            # Registry: SCRAPER_REGISTRY, @register, get_all_scrapers()
