@@ -1,11 +1,14 @@
 import time
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import responses
+from click.testing import CliRunner
 
+from board_aggregator.cli import main as cli_main
 from board_aggregator.hww import README_URL, HWWIndex, enrich
 from board_aggregator.models import JobPosting
+from board_aggregator.runner import run_all
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "hww_readme_sample.md"
 FIXTURE_TEXT = FIXTURE_PATH.read_text(encoding="utf-8")
@@ -222,3 +225,49 @@ def test_enrich_returns_match_count_across_mixed_jobs():
     matched = enrich(jobs, index)
 
     assert matched == 2
+
+
+# --- runner.run_all wiring ------------------------------------------------
+
+
+def _one_scraper():
+    mock_scraper = MagicMock()
+    mock_scraper.name = "test_board"
+    mock_scraper.scrape.return_value = [_job("Zapier")]
+    return mock_scraper
+
+
+def test_run_all_enriches_by_default(tmp_path):
+    with patch("board_aggregator.runner.get_all_scrapers", return_value=[_one_scraper()]), \
+            patch("board_aggregator.hww.HWWIndex.load", return_value=HWWIndex.parse(FIXTURE_TEXT)):
+        jobs = run_all(["query"], output_dir=tmp_path)
+
+    assert jobs[0].hww_listed is True
+
+
+def test_run_all_skips_hww_when_disabled(tmp_path):
+    with patch("board_aggregator.runner.get_all_scrapers", return_value=[_one_scraper()]), \
+            patch("board_aggregator.hww.HWWIndex.load") as mock_load:
+        jobs = run_all(["query"], output_dir=tmp_path, hww=False)
+
+    mock_load.assert_not_called()
+    assert jobs[0].hww_listed is False
+
+
+# --- cli --no-hww wiring ---------------------------------------------------
+
+
+def test_cli_no_hww_flag_disables_enrichment():
+    with patch("board_aggregator.cli.run_all", return_value=[]) as mock_run_all:
+        result = CliRunner().invoke(cli_main, ["--no-hww"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_run_all.call_args.kwargs["hww"] is False
+
+
+def test_cli_hww_enabled_by_default():
+    with patch("board_aggregator.cli.run_all", return_value=[]) as mock_run_all:
+        result = CliRunner().invoke(cli_main, [])
+
+    assert result.exit_code == 0, result.output
+    assert mock_run_all.call_args.kwargs["hww"] is True

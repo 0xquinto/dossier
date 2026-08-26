@@ -130,6 +130,7 @@ def run_all(
     scrapers: list[str] | None = None,
     portals_path: str | None = None,
     hours_old: int = 168,
+    hww: bool = True,
 ) -> list[JobPosting]:
     """Run board scrapers + portal scanner, deduplicate, and write output."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -168,6 +169,13 @@ def run_all(
     print(f"[runner] Total before dedup: {len(all_jobs)}")
     unique_jobs = deduplicate(all_jobs)
     print(f"[runner] Total after dedup: {len(unique_jobs)}")
+
+    if hww:
+        from board_aggregator.hww import HWWIndex, enrich
+
+        hww_index = HWWIndex.load()
+        matched = enrich(unique_jobs, hww_index)
+        print(f"[runner] HWW signal: {matched}/{len(unique_jobs)} postings matched hiring-without-whiteboards")
 
     # Write-once: a fresh RUN_DIR per run means these must not exist yet.
     # If they do, a second scout ran in the same dir (T1-4) — fail loudly

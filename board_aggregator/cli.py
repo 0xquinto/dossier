@@ -82,7 +82,12 @@ def load_board_filter(portals_path):
     is_flag=True,
     help="List all available scrapers and exit.",
 )
-def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers):
+@click.option(
+    "--hww/--no-hww",
+    default=True,
+    help="Enrich postings with the hiring-without-whiteboards signal. Default: enabled.",
+)
+def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers, hww):
     """dossier Scraper -- Multi-board job scraper for the dossier pipeline."""
     # Import here to trigger registration via module imports
     import board_aggregator.scrapers.jobspy_boards  # noqa: F401
@@ -144,6 +149,7 @@ def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrap
     click.echo(f"Output: {output_dir}")
     click.echo(f"Remote only: {remote_only}")
     click.echo(f"Hours old: {hours_old}")
+    click.echo(f"HWW signal: {'on' if hww else 'off'}")
     click.echo("---")
 
     try:
@@ -154,6 +160,7 @@ def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrap
             scrapers=scraper_filter,
             portals_path=portals,
             hours_old=hours_old,
+            hww=hww,
         )
     except FileExistsError as exc:
         # Write-once guard tripped (a second run into the same dir). Surface the
