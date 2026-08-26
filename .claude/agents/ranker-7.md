@@ -19,7 +19,7 @@ When invoked, you receive a `RUN_DIR` path. ALL output MUST be written under the
    .venv/bin/python -c "import json, os; jobs = json.load(open(os.path.join(os.environ['RUN_DIR'], 'phase-1-scrape/all-postings-index.json'))); print(len(jobs), 'postings')"
    ```
 
-   Each record has `title`, `company`, `salary_min`, `salary_max`, `source`, `job_url`, `is_remote`, `location`, `application_deadline`, `hww_listed`, `hww_process`. Location/deadline come from the index — score Remote/location fit and any deadline-urgency directly from these fields, no JD read needed. Parse the JSON and score every record. Only read `all-postings.md` (chunked with offset/limit) if you need a JD detail absent from the index.
+   Each record has `title`, `company`, `salary_min`, `salary_max`, `source`, `job_url`, `is_remote`, `location`, `application_deadline`; records matched against hiring-without-whiteboards additionally carry `hww_listed`/`hww_process` (absent = not listed). Location/deadline come from the index — score Remote/location fit and any deadline-urgency directly from these fields, no JD read needed. Parse the JSON and score every record. Only read `all-postings.md` (chunked with offset/limit) if you need a JD detail absent from the index.
 4. Read `$RUN_DIR/meta.json`. If it carries `phase_1.candidate_archetype`, treat that as the candidate archetype (from lead-0's readiness check) and weight the user's matching skills-inventory sections accordingly when scoring — do not re-derive it from scratch.
 
 ## Archetype detection (pre-scoring step)

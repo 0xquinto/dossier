@@ -17,13 +17,13 @@ CSV_FIELDS = [
 # Compact machine-readable index fields (T2-7): the minimal subset agents
 # need to score postings without reading the full human-facing markdown.
 # Includes location + application_deadline because ranker-7 reads this index
-# exclusively yet scores location-fit and deadline-urgency (I3). Includes
-# hww_listed/hww_process so ranker-7 can apply the tie-breaker bonus from
-# the index alone too (see board_aggregator.hww).
+# exclusively yet scores location-fit and deadline-urgency (I3).
+# hww_listed/hww_process are added per-record only on matched postings (the
+# small minority), so the unmatched majority doesn't pay ~40 bytes/record
+# against the index size budget (see board_aggregator.hww).
 INDEX_FIELDS = [
     "title", "company", "salary_min", "salary_max",
     "source", "job_url", "is_remote", "location", "application_deadline",
-    "hww_listed", "hww_process",
 ]
 
 
@@ -124,7 +124,13 @@ def write_compact_index(jobs: list[JobPosting], path: Path, *, overwrite: bool =
             f"Refusing to overwrite existing file: {path}. "
             "Use a fresh run directory or pass overwrite=True."
         )
-    records = [{k: getattr(job, k) for k in INDEX_FIELDS} for job in jobs]
+    records = []
+    for job in jobs:
+        record = {k: getattr(job, k) for k in INDEX_FIELDS}
+        if job.hww_listed:
+            record["hww_listed"] = True
+            record["hww_process"] = job.hww_process
+        records.append(record)
     atomic_write_text(
         path,
         json.dumps(records, ensure_ascii=False, separators=(",", ":")),

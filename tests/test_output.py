@@ -240,6 +240,8 @@ def _make_jobs(n: int) -> list[JobPosting]:
 
 def test_write_compact_index(tmp_path):
     jobs = _make_jobs(900)
+    jobs[1].hww_listed = True
+    jobs[1].hww_process = "Take-home project, then a pairing session."
     index_path = tmp_path / "all-postings-index.json"
     md_path = tmp_path / "all-postings.md"
 
@@ -257,24 +259,26 @@ def test_write_compact_index(tmp_path):
     assert set(records[0].keys()) == {
         "title", "company", "salary_min", "salary_max",
         "source", "job_url", "is_remote", "location", "application_deadline",
-        "hww_listed", "hww_process",
     }
     # location + application_deadline are present so ranker-7 can score
     # location-fit and deadline-urgency from the index alone (I3).
     assert records[0]["location"] == "Remote"
     assert records[0]["application_deadline"] is None
-    assert records[0]["hww_listed"] is False
-    assert records[0]["hww_process"] is None
+    # hww keys appear only on matched postings; the unmatched majority
+    # carries no hww keys at all (absent = not listed).
+    assert records[1]["hww_listed"] is True
+    assert records[1]["hww_process"] == "Take-home project, then a pairing session."
+    assert "hww_listed" not in records[0]
 
     # Compact: index is substantially smaller than the human markdown
     # (markdown truncates descriptions to 300 chars, so the gap is capped,
     # but the index omits descriptions entirely and stays tiny per record).
-    # The index now also carries location + application_deadline (I3) and
-    # hww_listed/hww_process, so the ratio is tighter than before, but
-    # markdown is still the larger artifact.
+    # The index now also carries location + application_deadline (I3), so
+    # the ratio is tighter than before, but markdown is still the larger
+    # artifact.
     assert index_path.stat().st_size < md_path.stat().st_size
     assert md_path.stat().st_size > 2 * index_path.stat().st_size
-    assert index_path.stat().st_size / len(jobs) < 300  # bytes per record
+    assert index_path.stat().st_size / len(jobs) < 250  # bytes per record
 
 
 def test_write_compact_index_refuses_to_overwrite(tmp_path):
