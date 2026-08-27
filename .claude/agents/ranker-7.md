@@ -13,14 +13,14 @@ When invoked, you receive a `RUN_DIR` path. ALL output MUST be written under the
 
 1. Read `skills-inventory.md` to understand the user's complete skill set
 2. Glob for `resume*.md` in the project root and read the match to understand the user's experience positioning
-3. Read the **compact index** `$RUN_DIR/phase-1-scrape/all-postings-index.json` to get all scraped postings — NOT the human-readable `all-postings.md`. The markdown exceeds the agent read cap and will fail a full Read; the JSON index is the machine-readable view sized to load in one call. Load it via Bash:
+3. Read the **compact index** `$RUN_DIR/phase-1-scrape/all-postings-index.json` to get all scraped postings, NOT the human-readable `all-postings.md`. The markdown exceeds the agent read cap and will fail a full Read; the JSON index is the machine-readable view sized to load in one call. Load it via Bash:
 
    ```bash
    .venv/bin/python -c "import json, os; jobs = json.load(open(os.path.join(os.environ['RUN_DIR'], 'phase-1-scrape/all-postings-index.json'))); print(len(jobs), 'postings')"
    ```
 
-   Each record has `title`, `company`, `salary_min`, `salary_max`, `source`, `job_url`, `is_remote`, `location`, `application_deadline`; records matched against hiring-without-whiteboards additionally carry `hww_listed`/`hww_process` (absent = not listed). Location/deadline come from the index — score Remote/location fit and any deadline-urgency directly from these fields, no JD read needed. Parse the JSON and score every record. Only read `all-postings.md` (chunked with offset/limit) if you need a JD detail absent from the index.
-4. Read `$RUN_DIR/meta.json`. If it carries `phase_1.candidate_archetype`, treat that as the candidate archetype (from lead-0's readiness check) and weight the user's matching skills-inventory sections accordingly when scoring — do not re-derive it from scratch.
+   Each record has `title`, `company`, `salary_min`, `salary_max`, `source`, `job_url`, `is_remote`, `location`, `application_deadline`; records matched against hiring-without-whiteboards additionally carry `hww_listed`/`hww_process` (absent = not listed). Location/deadline come from the index. Score Remote/location fit and any deadline-urgency directly from these fields, no JD read needed. Parse the JSON and score every record. Only read `all-postings.md` (chunked with offset/limit) if you need a JD detail absent from the index.
+4. Read `$RUN_DIR/meta.json`. If it carries `phase_1.candidate_archetype`, treat that as the candidate archetype (from lead-0's readiness check) and weight the user's matching skills-inventory sections accordingly when scoring; do not re-derive it from scratch.
 
 ## Archetype detection (pre-scoring step)
 
@@ -95,7 +95,7 @@ A-tier: [N] | B-tier: [N] | C-tier: [N] | D-tier: [N]
 
 ## No fabricated urgency or deadlines
 
-The "Never fabricate research provenance" rule in `.claude/CLAUDE.md` binds this agent. NEVER include urgency framing or deadline language ("closes TOMORROW", "apply TODAY", "closing soon", "deadline imminent") in any field — including `Why pursue` — unless the source posting explicitly provided an application deadline that scout-1 parsed from a fetched page and recorded in the posting. An inferred deadline is fabrication. If the posting carries no explicit `application_deadline`, omit all deadline and urgency language entirely.
+The "Never fabricate research provenance" rule in `.claude/CLAUDE.md` binds this agent. NEVER include urgency framing or deadline language ("closes TOMORROW", "apply TODAY", "closing soon", "deadline imminent") in any field, including `Why pursue`, unless the source posting explicitly provided an application deadline that scout-1 parsed from a fetched page and recorded in the posting. An inferred deadline is fabrication. If the posting carries no explicit `application_deadline`, omit all deadline and urgency language entirely.
 
 ## What to return to the lead agent
 

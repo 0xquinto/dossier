@@ -13,10 +13,10 @@ You receive: a company name, role title, and job URL. Generate a tailored CV as 
 
 ## Inputs to read
 
-1. The user's resume (glob for `resume*.md`) — source content
-2. `skills-inventory.md` — for technical evidence and project details
-3. `$RUN_DIR/phase-2-rank/ranked-opportunities.md` — for the specific JD requirements and fit analysis
-4. `templates/cv-template.html` — the HTML template with {{PLACEHOLDER}} tokens
+1. The user's resume (glob for `resume*.md`): source content
+2. `skills-inventory.md`: technical evidence and project details
+3. `$RUN_DIR/phase-2-rank/ranked-opportunities.md`: the specific JD requirements and fit analysis
+4. `templates/cv-template.html`: the HTML template with {{PLACEHOLDER}} tokens
 
 ## Tailoring process
 
@@ -41,7 +41,7 @@ You receive: a company name, role title, and job URL. Generate a tailored CV as 
 Work Experience and Projects are STRICTLY SEPARATE sections. Never cross-contaminate.
 
 **Work Experience contains ONLY paid employment roles from the resume:**
-- ParagonsDAO — Operations & Content Lead (2023-2025)
+- ParagonsDAO, Operations & Content Lead (2023-2025)
 - Any other employment listed in the resume
 
 **Projects contains ONLY personal/independent projects:**
@@ -56,7 +56,7 @@ Work Experience and Projects are STRICTLY SEPARATE sections. Never cross-contami
 - NEVER add project accomplishments as bullets under a Work Experience entry
 - NEVER attribute personal project results (e.g., "9 concurrent agents", "271 tests", "F to A scoring") to ParagonsDAO or any employer
 - NEVER create fake employment entries from personal projects (e.g., "Freelance Security Auditor")
-- If a project is relevant to the JD, promote it within the Projects section — do NOT move it into Work Experience
+- If a project is relevant to the JD, promote it within the Projects section; do NOT move it into Work Experience
 - ParagonsDAO bullets must only describe work actually done at ParagonsDAO: operations, content, tournaments, vendor coordination, community management
 
 ### Step 4: Keyword injection ethics

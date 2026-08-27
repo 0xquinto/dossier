@@ -17,7 +17,7 @@ Read `skills-inventory.md`. Generate targeted search queries based on the user's
 
 ## Step 2: Read existing portals (scaffold one if missing)
 
-If `portals.yml` does not exist, create it first — discovery needs a `config` block to read and a `companies` list to append to. Read `templates/portals.example.yml`, copy its `config` and `title_filter` blocks verbatim, and write `portals.yml` with those two blocks plus an empty `companies: []` list. (This is the scaffold lead-0's Portal Bootstrap step assumes when it dispatches you against a missing portals.yml, and it also makes standalone runs work on a fresh repo.)
+If `portals.yml` does not exist, create it first. Discovery needs a `config` block to read and a `companies` list to append to. Read `templates/portals.example.yml`, copy its `config` and `title_filter` blocks verbatim, and write `portals.yml` with those two blocks plus an empty `companies: []` list. (This is the scaffold lead-0's Portal Bootstrap step assumes when it dispatches you against a missing portals.yml, and it also makes standalone runs work on a fresh repo.)
 
 Read `portals.yml` and collect all existing company domains. These will be skipped during discovery.
 
@@ -25,7 +25,7 @@ Read `config.max_discovery_calls` to bound how large a discovery you request.
 
 ## Step 3: Discover companies
 
-Run the **`dossier-research discover`** CLI command — one Exa Agent run that
+Run the **`dossier-research discover`** CLI command, one Exa Agent run that
 returns ICP-fit candidate companies (with name, domain, ATS, careers URL, and
 an ICP-fit score) as structured JSON. Call it with `Bash`. Pass the skills
 inventory so the ICP is built from the user's real profile, and bound the
@@ -42,13 +42,13 @@ result count with `--max-items` (use `config.max_discovery_calls` as the cap):
 (If you have no `RUN_DIR`, omit `--run-dir`; standalone discovery runs do not
 use a run directory.) The command emits one structured JSON payload with
 `result.companies` (the candidates), a `grounding` audit trace, and a `cost`
-meter. The candidates are **leads only** — the careers URLs are validated by
+meter. The candidates are **leads only**. The careers URLs are validated by
 code in Step 4 (`probe-portal`), never trusted from the JSON. Deduplicate the
 returned companies against existing portals by domain.
 
 If the command errors (missing `EXA_API_KEY`, rate-limit / concurrency cap,
 cost-cap hit), it prints one actionable message and exits non-zero. Report the
-failure as a plain user-facing outcome — never the raw error or a
+failure as a plain user-facing outcome, never the raw error or a
 tool-capability disclaimer.
 
 ## HWW-seeded mode
@@ -85,7 +85,7 @@ unchanged from the rules below.
 For each new company:
 
 1. Take the `careers_url` returned in the candidate JSON
-   (`result.companies[].careers_url`) — a lead, not a validated URL. (It is
+   (`result.companies[].careers_url`), a lead, not a validated URL. (It is
    validated by code in step 4 below, never trusted from the JSON.)
 
 2. Pattern-match the careers URL to detect ATS:
@@ -97,10 +97,10 @@ For each new company:
 
 3. Score ICP fit 1-10 against skills-inventory.md
 
-4. **Validate the URL before writing it — by CODE, not judgment (REQUIRED).**
+4. **Validate the URL before writing it by CODE, not judgment (REQUIRED).**
    A portal entry is only useful if the pipeline can actually fetch it, so
    verify reachability at discovery time. Do NOT decide reachability yourself
-   from a snippet or a "looks fine" read — run the deterministic validator
+   from a snippet or a "looks fine" read. Run the deterministic validator
    below and obey its verdict. Never write an unvalidated URL into `portals.yml`.
 
    Build the exact URL the scanner will hit:
@@ -108,17 +108,17 @@ For each new company:
    - ashby      -> `https://api.ashbyhq.com/posting-api/job-board/{slug}`
    - lever      -> `https://api.lever.co/v0/postings/{slug}`
    - workday    -> the `careers_url` itself (the tenant page), NOT the data
-     endpoint — see the Workday note below
+     endpoint; see the Workday note below
    - `ats: null` -> the `careers_url` itself
 
    Run the validator with `Bash`. It does NOT print a raw `OK`/`FAIL` for you
-   to interpret — it performs the GET, derives the result from the actual HTTP
+   to interpret. It performs the GET, derives the result from the actual HTTP
    status the server returned (a real **2xx** is `OK`; any **4xx/5xx**,
-   network error, or timeout is `FAIL` — urllib raises `HTTPError` on 4xx/5xx
+   network error, or timeout is `FAIL`; urllib raises `HTTPError` on 4xx/5xx
    and `URLError` on network/DNS/timeout). Note urllib **follows redirects
    automatically** and reports only the FINAL status, so a 30x that lands on a
    2xx page reads as `OK` and a 30x that lands on an error reads by that final
-   error — there is no separate "redirect" outcome. Then it
+   error. There is no separate "redirect" outcome. Then it
    **routes that result through code** (`portal_verdict` in `setup_wizard.py`,
    which also encodes the Workday special case) to print **exactly one verdict
    token**, one of `WRITE` / `SKIP` / `DROP`:
@@ -128,16 +128,16 @@ For each new company:
    ```
 
    Pass the entry's `ats` value as the second argument (`greenhouse`, `ashby`,
-   `lever`, `workday`, or `null`) — the Workday branch lives in that code, not
+   `lever`, `workday`, or `null`). The Workday branch lives in that code, not
    in your head. The token is the verdict; obey it verbatim:
 
-   - **`WRITE`** — the probe returned a 2xx. This is the ONLY token that lets
+   - **`WRITE`**: the probe returned a 2xx. This is the ONLY token that lets
      you write the entry (subject to the score gate in step 5).
-   - **`DROP`** — a non-Workday entry whose probe FAILed (4xx/5xx, redirect,
+   - **`DROP`**: a non-Workday entry whose probe FAILed (4xx/5xx, redirect,
      network/timeout). The link is broken. Do NOT add it to `portals.yml`.
      Count it as skipped (report the count in your summary).
-   - **`SKIP`** — a Workday entry whose GET probe FAILed. **Workday is special:
-     do NOT mark it broken on a GET FAIL** — its real postings live behind a
+   - **`SKIP`**: a Workday entry whose GET probe FAILed. **Workday is special:
+     do NOT mark it broken on a GET FAIL.** Its real postings live behind a
      **POST** `cxs` endpoint
      (`https://{tenant}.{dc}.myworkdayjobs.com/wday/cxs/{tenant}/{site}/jobs`)
      this GET cannot exercise, so a FAIL is not proof the portal is dead. But a
@@ -152,7 +152,7 @@ For each new company:
    Only a `WRITE` verdict is eligible to be written. Both `DROP` and `SKIP`
    leave the entry out of `portals.yml`. Do NOT override the token because a
    search snippet looked promising, and do NOT batch-write entries you
-   validated earlier together with new, unvalidated ones — every entry you
+   validated earlier together with new, unvalidated ones. Every entry you
    write must have its own fresh `WRITE` verdict from this step.
 
 5. If score >= `icp_min_score` (from portals.yml config) AND step 4 returned

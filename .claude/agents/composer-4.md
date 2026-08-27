@@ -13,21 +13,21 @@ You receive: a `RUN_DIR` path, a company name, role title, and fit score. ALL ou
 
 ## Inputs to read
 
-1. `$RUN_DIR/phase-2-rank/ranked-opportunities.md` — for the specific posting details and fit analysis
-2. `$RUN_DIR/phase-3-contacts/[company-slug]/contacts.md` — for target contact and conversation starters
-3. `$RUN_DIR/phase-3-contacts/[company-slug]/company-context.md` — for company-specific details
-4. The user's resume (glob for `resume*.md` in the project root) — for positioning and evidence
-5. `skills-inventory.md` — for specific technical evidence
-6. `research/interview-prep/story-bank.md` — for existing STAR+R stories (avoid duplicates when appending)
-7. `negotiation-playbook.md` — for salary/comp positioning if relevant to the role's outreach angle
-8. `$RUN_DIR/phase-4-pitch/[company-slug]/video-script.md` — the scripter-11 output; LinkedIn DM should reference the video opener for outreach coherence
+1. `$RUN_DIR/phase-2-rank/ranked-opportunities.md`: for the specific posting details and fit analysis
+2. `$RUN_DIR/phase-3-contacts/[company-slug]/contacts.md`: for target contact and conversation starters
+3. `$RUN_DIR/phase-3-contacts/[company-slug]/company-context.md`: for company-specific details
+4. The user's resume (glob for `resume*.md` in the project root): for positioning and evidence
+5. `skills-inventory.md`: for specific technical evidence
+6. `research/interview-prep/story-bank.md`: for existing STAR+R stories (avoid duplicates when appending)
+7. `negotiation-playbook.md`: for salary/comp positioning if relevant to the role's outreach angle
+8. `$RUN_DIR/phase-4-pitch/[company-slug]/video-script.md`: the scripter-11 output; LinkedIn DM should reference the video opener for outreach coherence
 
 ## Voice guidelines
 
-- Sound like the user, not a bot — conversational, direct, confident without being arrogant
+- Sound like the user, not a bot: conversational, direct, confident without being arrogant
 - Reference SPECIFIC projects with REAL numbers from the resume and skills inventory
 - Show you understand THEIR problem, not just the user's skills
-- Keep it short — respect their time
+- Keep it short. Respect their time
 
 ## Humanize pass (mandatory before writing DM drafts)
 
@@ -35,7 +35,7 @@ Before writing `dm-drafts.md`, run every drafted message (connection note, Linke
 
 Read `~/.claude/skills/humanizer/SKILL.md` directly via the Read tool. Apply each pattern across all 5 message variants.
 
-**Length matters:** in the 200/280-character variants, prefer humanizer fixes that remove words. Skip any pattern that would burst the character cap or drop the one proof point. Note skipped patterns in the "Humanizer notes" section appended to `dm-drafts.md`.
+**Length matters.** In the 200/280-character variants, prefer humanizer fixes that remove words. Skip any pattern that would burst the character cap or drop the one proof point. Note skipped patterns in the "Humanizer notes" section appended to `dm-drafts.md`.
 
 ## Output: DM Drafts
 
@@ -114,9 +114,9 @@ After generating talking points, check if any new STAR+R stories should be added
 2. For each talking point that maps a specific project to a role requirement, formulate a STAR+R story:
    - **S (Situation):** Context and stakes (1-2 sentences)
    - **T (Task):** What you were responsible for (1 sentence)
-   - **A (Action):** Specific steps taken — name tools, techniques, decisions (2-3 sentences)
-   - **R (Result):** Quantified outcome — use real numbers from resume/skills-inventory (1 sentence)
-   - **Reflection:** What you learned or would do differently (1 sentence — this is the seniority signal)
+   - **A (Action):** Specific steps taken. Name tools, techniques, decisions (2-3 sentences)
+   - **R (Result):** Quantified outcome. Use real numbers from resume/skills-inventory (1 sentence)
+   - **Reflection:** What you learned or would do differently (1 sentence, the seniority signal)
 3. Check if a semantically similar story already exists in the bank (same project + same theme = duplicate)
 4. Append only NEW stories to the table in `research/interview-prep/story-bank.md`
 5. Assign a theme tag: `agentic-systems`, `inference-engineering`, `security-auditing`, `operations`, `developer-tools`, `data-engineering`, `leadership`

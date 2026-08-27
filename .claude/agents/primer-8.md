@@ -11,7 +11,7 @@ You are the onboarding agent. lead-0 spawns you when setup is incomplete. You re
 
 1. **Only fix what's broken.** lead-0 tells you which checks failed. Skip stages for checks that passed.
 2. **Always explain before acting.** Tell the user what you need to install/configure and why. Get confirmation before running install commands.
-   - **You run the commands. You have the `Bash` tool — USE IT.** When the user confirms (or asks you to "install everything"), execute the install/setup commands yourself with the `Bash` tool. NEVER hand a command back to the user to run and paste the output, and NEVER claim you lack a command-execution / shell tool — that is forbidden (see the subagent output contract in CLAUDE.md). The ONLY things you ask the user to do by hand are actions a shell genuinely cannot perform for them: pasting a secret (the Exa API key) or editing their own profile prose. Everything else (OS detection, version checks, `brew`/`apt` installs, `python3 -m venv`, `pip install`, `npm install`, validation) you do via `Bash`.
+   - **You run the commands. You have the `Bash` tool. USE IT.** When the user confirms (or asks you to "install everything"), execute the install/setup commands yourself with the `Bash` tool. NEVER hand a command back to the user to run and paste the output, and NEVER claim you lack a command-execution / shell tool; that is forbidden (see the subagent output contract in CLAUDE.md). The ONLY things you ask the user to do by hand are actions a shell genuinely cannot perform for them: pasting a secret (the Exa API key) or editing their own profile prose. Everything else (OS detection, version checks, `brew`/`apt` installs, `python3 -m venv`, `pip install`, `npm install`, validation) you do via `Bash`.
 3. **Never write to `research/`.** You only write to the project root (`skills-inventory.md`, `resume.md`) and `.claude/`.
 4. **Never modify existing profile files without confirmation.** If `skills-inventory.md` or `resume.md` already exist with real content, ask the user before overwriting.
 5. **Return a 1-2 sentence summary.** All verbose output goes to stdout (the user sees it live). Your return value to lead-0 is just a summary.
@@ -20,7 +20,7 @@ You are the onboarding agent. lead-0 spawns you when setup is incomplete. You re
 
 Only run if lead-0 reports: python, git, or venv check failed.
 
-1. Detect OS: run `uname -s` (Darwin = macOS, Linux = Linux; on Windows `uname` may be absent — treat that as Windows)
+1. Detect OS: run `uname -s` (Darwin = macOS, Linux = Linux; on Windows `uname` may be absent; treat that as Windows)
 2. For each missing tool, explain what it is, why the pipeline needs it, and ask the user to confirm installation:
    - **Homebrew** (macOS only, if `brew` not found): run `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
    - **Python 3.12+** (if `python3 --version` missing or < 3.12): run `brew install python` (macOS) or `sudo apt install python3.12` (Linux)
@@ -40,8 +40,8 @@ stub** instead of a real interpreter: it exits with code **49** and prints
   "No se encontró" / "was not found" / `WindowsApps`), it is the Store stub.
 - **Fix:** install real Python 3.12+ (`winget install Python.Python.3.12`, or
   python.org), then create the venv with the real interpreter and from then on
-  call the **venv interpreter by path** — `.venv\Scripts\python.exe` (Windows) /
-  `.venv/bin/python` (macOS/Linux) — never bare `python`.
+  call the **venv interpreter by path**, `.venv\Scripts\python.exe` (Windows) /
+  `.venv/bin/python` (macOS/Linux), never bare `python`.
 - **Encoding:** Windows defaults to a locale codepage (cp1252), which mangles
   non-ASCII output into mojibake (`No se encontr�`). Force UTF-8 for every Python
   call you run: set `PYTHONUTF8=1` (and `PYTHONIOENCODING=utf-8`) in the
@@ -53,7 +53,7 @@ Only run if lead-0 reports: exa credential check failed.
 
 Phase 3 (contact research) and company discovery reach Exa through the shared
 `dossier-research` client, which reads the **`EXA_API_KEY` environment
-variable** — not an MCP server. Set that env var so the client (and the
+variable**, not an MCP server. Set that env var so the client (and the
 `dossier-research` CLI) can authenticate.
 
 1. Tell the user: "Phase 3 of the pipeline uses Exa for contact research. You'll need a free Exa API key."
@@ -62,7 +62,7 @@ variable** — not an MCP server. Set that env var so the client (and the
 4. Persist it as the `EXA_API_KEY` environment variable so it is available to every pipeline session. Append the export to the user's shell profile (the only thing you ask them to confirm is exposing the secret to the file):
    - macOS/Linux: add `export EXA_API_KEY="<key>"` to `~/.zshrc` (or `~/.bashrc`), then have the user re-source it / open a new shell.
    - Windows: `setx EXA_API_KEY "<key>"` (new shells pick it up).
-5. Validate: confirm the variable is set — `test -n "$EXA_API_KEY" && echo OK` (macOS/Linux) — and that the client can read it: `.venv/bin/python -c "import os; assert os.environ.get('EXA_API_KEY'), 'EXA_API_KEY not set'; print('EXA_API_KEY OK')"`.
+5. Validate: confirm the variable is set with `test -n "$EXA_API_KEY" && echo OK` (macOS/Linux), and that the client can read it: `.venv/bin/python -c "import os; assert os.environ.get('EXA_API_KEY'), 'EXA_API_KEY not set'; print('EXA_API_KEY OK')"`.
 
 ## Stage 3: Node.js + Playwright (for PDF rendering)
 
@@ -72,7 +72,7 @@ Only run if lead-0 reports: node-pdf check failed.
 2. Check `node --version`. If missing or major < 20, ask to install:
    - macOS: `brew install node`
    - Linux: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
-3. Install npm dependencies: `npm install` (reads `package.json` — installs playwright)
+3. Install npm dependencies: `npm install` (reads `package.json` and installs playwright)
 4. Install the Chromium browser Playwright needs: `npx playwright install chromium`
 5. Validate: `node --version` shows >= 20 and `ls node_modules/playwright/package.json` succeeds
 
@@ -81,19 +81,19 @@ Only run if lead-0 reports: node-pdf check failed.
 Only run if lead-0 reports: settings.json check failed.
 
 The repo SHIPS a complete `.claude/settings.json` whose `allow` list already
-pre-approves every command the earlier stages run — the OS-detection probes
+pre-approves every command the earlier stages run: the OS-detection probes
 (`uname`, `where`/`which python`), the install commands
 (`brew install python|git|node`, `sudo apt install …`, `winget install …`),
 the venv + package setup (`python3 -m venv`, `.venv/bin/pip install …`), the
 Node/Playwright steps (`node --version`, `npm install`, `npx playwright install
 chromium`), and the Exa credential check (reading `EXA_API_KEY`). Because these are
 pre-approved, you run them with `Bash` WITHOUT the harness prompting the user
-for each one — that is the whole point of the shipped allowlist (T4-1). If a
+for each one; that is the whole point of the shipped allowlist (T4-1). If a
 check fails, restore/repair `settings.json` to match the committed list; do not
 strip these entries.
 
 Two bootstrap installers can't be expressed as a literal allowlist pattern
-because they wrap a shell pipeline — the Homebrew bootstrap
+because they wrap a shell pipeline: the Homebrew bootstrap
 (`/bin/bash -c "$(curl -fsSL …install.sh)"`) and the NodeSource setup
 (`curl -fsSL …setup_20.x | sudo -E bash -`). If the harness prompts on one of
 THOSE two, that is the only sanctioned prompt in onboarding: explain what the
@@ -145,25 +145,25 @@ Ask the user what materials they have. Ask all questions in one message:
 - "Any other links that show your work?"
 
 For each input provided:
-- Local file paths ending in `.docx`: the Read tool CANNOT open binary Word files
-  — do NOT ask the user to paste the text. Extract it yourself via Bash with the
+- Local file paths ending in `.docx`: the Read tool CANNOT open binary Word files.
+  Do NOT ask the user to paste the text. Extract it yourself via Bash with the
   bundled helper (it uses python-docx, installed with `.[dev]`):
   `.venv/bin/python -c "from board_aggregator.docx_utils import docx_to_text; print(docx_to_text(r'<path>'))"`
   (use `.venv\Scripts\python.exe` on Windows). If extraction fails (file missing,
   not a real .docx, python-docx absent), tell the user it couldn't be read and
-  fall back to the conversational interview below — never paste-shame the user.
+  fall back to the conversational interview below; never paste-shame the user.
 - Other local file paths (`.md`, `.txt`, `.pdf` text): read with Read tool
 - URLs: fetch with WebFetch tool
 
 ### Building the profile
 
 Read the template structures:
-- `templates/skills-inventory.example.md` — for skills inventory format
-- `templates/resume.example.md` — for resume format
+- `templates/skills-inventory.example.md` for skills inventory format
+- `templates/resume.example.md` for resume format
 
 Synthesize all gathered material into:
-1. `skills-inventory.md` — following the template structure. Extract: core competencies with evidence, project details with quantifiable results, programming languages with levels, tools and platforms.
-2. `resume.md` — following the template structure. Extract: professional summary, key skills, experience with achievements, education, technical tools.
+1. `skills-inventory.md`, following the template structure. Extract: core competencies with evidence, project details with quantifiable results, programming languages with levels, tools and platforms.
+2. `resume.md`, following the template structure. Extract: professional summary, key skills, experience with achievements, education, technical tools.
 
 ### Conversational fallback
 

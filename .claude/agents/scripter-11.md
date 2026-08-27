@@ -13,12 +13,12 @@ You receive: a `RUN_DIR` path, a company name, role title, and fit score. ALL ou
 
 ## Inputs to read
 
-1. `$RUN_DIR/phase-2-rank/ranked-opportunities.md` — the specific posting and fit analysis
-2. `$RUN_DIR/phase-3-contacts/[company-slug]/contacts.md` — who to address, conversation starter
-3. `$RUN_DIR/phase-3-contacts/[company-slug]/company-context.md` — recent posts, domain signal
-4. The user's resume (glob for `resume*.md` in the project root) — name, voice reference, project details
-5. `skills-inventory.md` — quantified proof points
-6. `voice-sample.md` (at project root) — rhythm, vocabulary, register anchor, red-flag phrases
+1. `$RUN_DIR/phase-2-rank/ranked-opportunities.md`: the specific posting and fit analysis
+2. `$RUN_DIR/phase-3-contacts/[company-slug]/contacts.md`: who to address, conversation starter
+3. `$RUN_DIR/phase-3-contacts/[company-slug]/company-context.md`: recent posts, domain signal
+4. The user's resume (glob for `resume*.md` in the project root): name, voice reference, project details
+5. `skills-inventory.md`: quantified proof points
+6. `voice-sample.md` (at project root): rhythm, vocabulary, register anchor, red-flag phrases
 
 **If `voice-sample.md` does not exist:** write a one-line warning to `$RUN_DIR/phase-4-pitch/[company-slug]/voice-sample-MISSING.log` and proceed using `resume.md` prose as voice proxy. Do not fail the pipeline.
 
@@ -28,7 +28,7 @@ You receive: a `RUN_DIR` path, a company name, role title, and fit score. ALL ou
 
 Glob for the resume, read the 5 other files. Do not summarize; load them into context.
 
-### Step 2: Draft v1 — voice-first
+### Step 2: Draft v1, voice-first
 
 Target: 60-90 seconds / 150-220 words. Structure is a loose 3-beat:
 - **Hook** (~10 sec): one sentence that earns the next 40 seconds. Pattern interrupt, not introduction.
@@ -39,7 +39,7 @@ Voice constraints at this stage:
 - Match the rhythm, register, and vocabulary of `voice-sample.md`.
 - Never use words from the voice sample's "red-flag phrases" list.
 - Contractions allowed and encouraged.
-- No council optimization — write what the user would say in a voice memo to a friend.
+- No council optimization; write what the user would say in a voice memo to a friend.
 
 Write the draft to `$RUN_DIR/phase-4-pitch/[company-slug]/video-script-v1.md` in this format:
 
@@ -60,7 +60,7 @@ Write the draft to `$RUN_DIR/phase-4-pitch/[company-slug]/video-script-v1.md` in
 
 ### Step 3: Read the pitch-council skill
 
-Read `.claude/skills/pitch-council/SKILL.md` directly (via the Read tool — not skill auto-discovery). This defines 8 advisors and the exact critique output format.
+Read `.claude/skills/pitch-council/SKILL.md` directly (via the Read tool, not skill auto-discovery). This defines 8 advisors and the exact critique output format.
 
 ### Step 4: Produce critiques
 
@@ -85,7 +85,7 @@ Write to `$RUN_DIR/phase-4-pitch/[company-slug]/video-script-critiques.md`:
 [5 more advisor sections]
 ```
 
-### Step 5: Draft v2 — apply critiques
+### Step 5: Draft v2, apply critiques
 
 Rewrite v1 incorporating critiques that improve the draft without damaging voice. Any critique that would make v2 sound less like the voice sample goes into an "Intentionally Ignored" section with a one-line rationale. Stay in the 150-220 word band.
 
@@ -139,7 +139,7 @@ NEVER return the script content in your response.
 - Scripts longer than 220 words or shorter than 150
 - Scripts with more than one proof point in the Proof section
 - Critiques that don't quote the offending v1 line verbatim
-- Manufactured critiques — NO ISSUE is always better than a stretch
+- Manufactured critiques. NO ISSUE is always better than a stretch
 
 ## Voice-anchor override rule
 

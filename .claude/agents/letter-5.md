@@ -13,10 +13,10 @@ You receive: a company name, role title, and optionally a `RUN_DIR`. If no `RUN_
 
 ## Inputs to read
 
-1. `$RUN_DIR/phase-2-rank/ranked-opportunities.md` — for the specific JD, requirements, and fit analysis
-2. `skills-inventory.md` — for technical evidence, project details, and metrics
-3. The user's resume (glob for `resume*.md` in the project root) — for experience and voice reference
-4. `templates/cover-letter-template.html` — the HTML template with {{PLACEHOLDER}} tokens
+1. `$RUN_DIR/phase-2-rank/ranked-opportunities.md`: for the specific JD, requirements, and fit analysis
+2. `skills-inventory.md`: for technical evidence, project details, and metrics
+3. The user's resume (glob for `resume*.md` in the project root): for experience and voice reference
+4. `templates/cover-letter-template.html`: the HTML template with {{PLACEHOLDER}} tokens
 
 ## Process
 
@@ -49,7 +49,7 @@ From `skills-inventory.md`, pick the projects that best map to JD requirements. 
 - 2-3 achievements mapped to JD requirements using SOAR (Situation, Obstacle, Action, Result)
 - Real project names, real numbers from skills-inventory.md
 - JD keywords integrated naturally into the narrative
-- Never repeat resume bullet points verbatim — provide context and impact
+- Never repeat resume bullet points verbatim. Provide context and impact
 
 **Close (50-75 words):**
 - Restate fit for the specific role
@@ -91,16 +91,16 @@ Keywords injected: [count]
 ### Step 7: Build HTML output
 
 Read `templates/cover-letter-template.html`. Substitute all `{{PLACEHOLDER}}` tokens:
-- `{{LANG}}` — "en"
-- `{{PAGE_WIDTH}}` — "8.5in" (letter) unless job is UK/EU, then "210mm" (A4)
-- `{{NAME}}` — user's full name from resume
-- `{{EMAIL}}`, `{{LOCATION}}`, `{{LINKEDIN_URL}}`, `{{LINKEDIN_DISPLAY}}`, `{{PORTFOLIO_URL}}`, `{{PORTFOLIO_DISPLAY}}` — from resume
-- `{{DATE}}` — today's date formatted as "April 10, 2026"
-- `{{RECIPIENT}}` — "Hiring Manager" (or specific name if known from Phase 3 contacts)
-- `{{OPENING}}` — opening paragraph wrapped in `<p>` tags
-- `{{BODY}}` — body paragraph(s) wrapped in `<p>` tags
-- `{{CLOSE}}` — closing paragraph wrapped in `<p>` tags
-- `{{SIGN_OFF}}` — "Sincerely," or "Best regards,"
+- `{{LANG}}`: "en"
+- `{{PAGE_WIDTH}}`: "8.5in" (letter) unless job is UK/EU, then "210mm" (A4)
+- `{{NAME}}`: user's full name from resume
+- `{{EMAIL}}`, `{{LOCATION}}`, `{{LINKEDIN_URL}}`, `{{LINKEDIN_DISPLAY}}`, `{{PORTFOLIO_URL}}`, `{{PORTFOLIO_DISPLAY}}`: from resume
+- `{{DATE}}`: today's date formatted as "April 10, 2026"
+- `{{RECIPIENT}}`: "Hiring Manager" (or specific name if known from Phase 3 contacts)
+- `{{OPENING}}`: opening paragraph wrapped in `<p>` tags
+- `{{BODY}}`: body paragraph(s) wrapped in `<p>` tags
+- `{{CLOSE}}`: closing paragraph wrapped in `<p>` tags
+- `{{SIGN_OFF}}`: "Sincerely," or "Best regards,"
 
 Write to `$RUN_DIR/phase-4-pitch/[company-slug]/cover-letter.html`
 
@@ -115,7 +115,7 @@ node scripts/generate-pdf.mjs $RUN_DIR/phase-4-pitch/[company-slug]/cover-letter
 1. **No generic openers.** Never use "I am excited to apply", "I am writing to express my interest", "I was thrilled to see", or any variation. Start with substance.
 2. **No vague claims.** Never use "strong communicator", "fast learner", "passionate about technology", "team player" without immediately backing it with a specific example.
 3. **Evidence-first.** Every claim must be backed by a specific project name and metric from skills-inventory.md.
-4. **Voice match.** The letter must sound like the resume — direct, confident, conversational. Not a consulting brochure.
+4. **Voice match.** The letter must sound like the resume: direct, confident, conversational. Not a consulting brochure.
 5. **Read-aloud test.** If a sentence wouldn't be said in an interview, rewrite it.
 6. **No resume regurgitation.** Don't repeat bullet points. Provide new context, new framing, new insight.
 
