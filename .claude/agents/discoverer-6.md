@@ -60,9 +60,9 @@ In this mode the candidate pool comes from the hiring-without-whiteboards
 list instead of an Exa name-discovery run, so Exa spend goes only to
 validating candidates, not finding them:
 
-1. Run `board-aggregator --hww-pool` (add `--remote-only` when the user's
-   profile is remote-oriented) instead of the `dossier-research discover`
-   Exa run in Step 3 above. This prints the pool as JSON — name, url,
+1. Run `board-aggregator --hww-pool` (remote-only by default; add
+   `--include-onsite` when the user's profile allows on-site roles) instead
+   of the `dossier-research discover` Exa run in Step 3 above. This prints the pool as JSON — name, url,
    location, process, remote — and does not touch the network beyond the
    list's own 7-day cache.
 2. Dedup the pool against existing portals.yml domains exactly as in Step
@@ -74,7 +74,8 @@ validating candidates, not finding them:
    `config.max_discovery_calls` caps how many candidates get the
    ATS-detection treatment in one run.
 5. For each written entry, `icp_fit_reasoning` notes that the company was
-   seeded from hiring-without-whiteboards.
+   seeded from hiring-without-whiteboards, and `source` is `"hww-seed"`
+   (not `"exa-discovery"` — no Exa discovery run produced it).
 
 Everything else — validation verdicts, never writing an unvalidated URL — is
 unchanged from the rules below.
