@@ -51,6 +51,35 @@ cost-cap hit), it prints one actionable message and exits non-zero. Report the
 failure as a plain user-facing outcome — never the raw error or a
 tool-capability disclaimer.
 
+## HWW-seeded mode
+
+**Trigger:** the user, or lead-0's dispatch prompt, asks to seed or restrict
+discovery to hiring-without-whiteboards companies.
+
+In this mode the candidate pool comes from the hiring-without-whiteboards
+list instead of an Exa name-discovery run, so Exa spend goes only to
+validating candidates, not finding them:
+
+1. Run `board-aggregator --hww-pool` (remote-only by default; add
+   `--include-onsite` when the user's profile allows on-site roles) instead
+   of the `dossier-research discover` Exa run in Step 3 above. This prints the pool as JSON — name, url,
+   location, process, remote — and does not touch the network beyond the
+   list's own 7-day cache.
+2. Dedup the pool against existing portals.yml domains exactly as in Step
+   2/3.
+3. Prefilter the deduped pool against skills-inventory.md using your own ICP
+   judgment, and take the strongest candidates.
+4. Run Step 4 (ATS detection + URL validation) and Step 5 (the
+   `icp_min_score` gate) below per candidate, same as any other candidate.
+   `config.max_discovery_calls` caps how many candidates get the
+   ATS-detection treatment in one run.
+5. For each written entry, `icp_fit_reasoning` notes that the company was
+   seeded from hiring-without-whiteboards, and `source` is `"hww-seed"`
+   (not `"exa-discovery"` — no Exa discovery run produced it).
+
+Everything else — validation verdicts, never writing an unvalidated URL — is
+unchanged from the rules below.
+
 ## Step 4: Detect ATS and add to portals
 
 For each new company:

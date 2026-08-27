@@ -93,10 +93,39 @@ def load_board_filter(portals_path):
     default=False,
     help="Keep only postings from companies on the hiring-without-whiteboards list.",
 )
-def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers, hww, hww_only):
+@click.option(
+    "--hww-pool",
+    is_flag=True,
+    default=False,
+    help="Print the hiring-without-whiteboards company list as JSON and exit "
+    "(a discovery candidate pool -- no scraping happens).",
+)
+def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers, hww, hww_only, hww_pool):
     """dossier Scraper -- Multi-board job scraper for the dossier pipeline."""
     if hww_only and not hww:
         raise click.UsageError("--hww-only requires --hww (cannot combine with --no-hww)")
+    if hww_pool and not hww:
+        raise click.UsageError("--hww-pool requires --hww (cannot combine with --no-hww)")
+
+    if hww_pool:
+        import json
+
+        from board_aggregator.hww import HWWIndex
+
+        index = HWWIndex.load()
+        pool = [
+            {
+                "name": c.name,
+                "url": c.url,
+                "location": c.location,
+                "process": c.process,
+                "remote": c.remote,
+            }
+            for c in index.companies.values()
+            if not remote_only or c.remote is True
+        ]
+        click.echo(json.dumps(pool, indent=2))
+        return
 
     # Import here to trigger registration via module imports
     import board_aggregator.scrapers.jobspy_boards  # noqa: F401
