@@ -187,6 +187,22 @@ def test_has_verified_deadline_gate():
     assert verified.has_verified_deadline is True
 
 
+def test_job_posting_hww_fields_default():
+    job = JobPosting(
+        title="AI Engineer",
+        company="Acme Corp",
+        source="himalayas",
+        job_url="https://example.com/job/1",
+    )
+    assert job.hww_listed is False
+    assert job.hww_process is None
+
+    job.hww_listed = True
+    job.hww_process = "Take-home project, then a pairing session."
+    assert job.hww_listed is True
+    assert job.hww_process == "Take-home project, then a pairing session."
+
+
 def test_job_url_mutation_revalidates():
     # The post-creation mutation bypass is closed: reassigning job_url after
     # construction re-runs the URL validator, so a validated link cannot be

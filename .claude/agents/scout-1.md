@@ -30,6 +30,7 @@ The lead agent guarantees:
 - Every selected scraper appears as its own `-s` flag (no defaults — explicit list always)
 - `--hours-old N` is included explicitly (24 = "posted today", 168 = last 7 days, default if omitted = 168)
 - `--portals` is included only when at least one portal company survived preflight
+- `--hww-only` is included only when the user asked to restrict the run to hiring-without-whiteboards companies
 
 The `--portals` flag triggers ATS portal scanning (Greenhouse, Ashby, Lever APIs) for the companies in the subset file. Results are deduplicated with board scraper results and written to a unified output.
 

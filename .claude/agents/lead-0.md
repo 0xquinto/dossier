@@ -268,6 +268,7 @@ Rules:
   - "last 3 days" / "this week" → `--hours-old 72` or `--hours-old 168`
   - User said nothing about freshness → ask once, or default to `--hours-old 168` (last 7 days) and record the choice in `meta.json`.
 - Include `--portals $RUN_DIR/phase-1-scrape/portals-subset.yml` only if you wrote the subset file in Preflight Step 6. Omit otherwise.
+- Include `--hww-only` only when the user asked to restrict the run to hiring-without-whiteboards companies.
 - Pass the queries the user confirmed earlier.
 
 The scout-1 prompt MUST include:

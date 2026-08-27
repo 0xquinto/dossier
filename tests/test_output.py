@@ -65,6 +65,76 @@ def test_write_markdown(tmp_path):
     assert "## Rust Developer" in content
 
 
+# --- hww_listed / hww_process (board_aggregator.hww enrichment) ----------
+
+
+def test_write_csv_includes_hww_columns(tmp_path):
+    path = tmp_path / "hww.csv"
+    jobs = [
+        JobPosting(
+            title="AI Engineer", company="Zapier", source="himalayas",
+            job_url="https://example.com/1",
+            hww_listed=True, hww_process="Take-home project, then a pairing session.",
+        ),
+        JobPosting(
+            title="Rust Developer", company="NXLog", source="himalayas",
+            job_url="https://example.com/2",
+        ),
+    ]
+
+    write_csv(jobs, path)
+
+    with open(path, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    assert rows[0]["hww_listed"] == "True"
+    assert rows[0]["hww_process"] == "Take-home project, then a pairing session."
+    assert rows[1]["hww_listed"] == "False"
+    assert rows[1]["hww_process"] == ""
+
+
+def test_write_markdown_renders_hww_process_note_for_listed(tmp_path):
+    path = tmp_path / "hww.md"
+    jobs = [
+        JobPosting(
+            title="AI Engineer", company="Zapier", source="himalayas",
+            job_url="https://example.com/1",
+            hww_listed=True, hww_process="Take-home project, then a pairing session.",
+        ),
+    ]
+
+    write_markdown(jobs, path)
+
+    content = path.read_text(encoding="utf-8")
+    assert "Hiring Without Whiteboards" in content
+    assert "Take-home project, then a pairing session." in content
+
+
+def test_write_markdown_omits_hww_lines_for_non_listed(tmp_path):
+    path = tmp_path / "no-hww.md"
+
+    write_markdown(SAMPLE_JOBS, path)  # neither sample job is hww_listed
+
+    content = path.read_text(encoding="utf-8")
+    assert "Hiring Without Whiteboards" not in content
+
+
+def test_write_markdown_listed_without_process_note_omits_note_line(tmp_path):
+    path = tmp_path / "listed-no-process.md"
+    jobs = [
+        JobPosting(
+            title="AI Engineer", company="Abstract", source="himalayas",
+            job_url="https://example.com/1", hww_listed=True,
+        ),
+    ]
+
+    write_markdown(jobs, path)
+
+    content = path.read_text(encoding="utf-8")
+    assert "Hiring Without Whiteboards" in content
+    assert "HWW Process Note" not in content
+
+
 # --- T2-1 / T3-3: UTF-8 encoding ---
 
 UTF8_JOBS = [
@@ -170,6 +240,8 @@ def _make_jobs(n: int) -> list[JobPosting]:
 
 def test_write_compact_index(tmp_path):
     jobs = _make_jobs(900)
+    jobs[1].hww_listed = True
+    jobs[1].hww_process = "Take-home project, then a pairing session."
     index_path = tmp_path / "all-postings-index.json"
     md_path = tmp_path / "all-postings.md"
 
@@ -192,12 +264,18 @@ def test_write_compact_index(tmp_path):
     # location-fit and deadline-urgency from the index alone (I3).
     assert records[0]["location"] == "Remote"
     assert records[0]["application_deadline"] is None
+    # hww keys appear only on matched postings; the unmatched majority
+    # carries no hww keys at all (absent = not listed).
+    assert records[1]["hww_listed"] is True
+    assert records[1]["hww_process"] == "Take-home project, then a pairing session."
+    assert "hww_listed" not in records[0]
 
     # Compact: index is substantially smaller than the human markdown
     # (markdown truncates descriptions to 300 chars, so the gap is capped,
     # but the index omits descriptions entirely and stays tiny per record).
-    # The index now also carries location + application_deadline (I3), so the
-    # ratio is tighter than before, but markdown is still the larger artifact.
+    # The index now also carries location + application_deadline (I3), so
+    # the ratio is tighter than before, but markdown is still the larger
+    # artifact.
     assert index_path.stat().st_size < md_path.stat().st_size
     assert md_path.stat().st_size > 2 * index_path.stat().st_size
     assert index_path.stat().st_size / len(jobs) < 250  # bytes per record

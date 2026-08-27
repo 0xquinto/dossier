@@ -130,8 +130,16 @@ def run_all(
     scrapers: list[str] | None = None,
     portals_path: str | None = None,
     hours_old: int = 168,
+    hww: bool = True,
+    hww_only: bool = False,
 ) -> list[JobPosting]:
     """Run board scrapers + portal scanner, deduplicate, and write output."""
+    if hww_only and not hww:
+        # Programmatic-caller boundary guard: the CLI blocks this combination
+        # earlier with a UsageError, but run_all is called directly by tests
+        # and other callers too, so it must refuse on its own.
+        raise ValueError("hww_only requires hww (cannot restrict to hiring-without-whiteboards companies with hww disabled)")
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Stage 1: board scrapers
@@ -168,6 +176,18 @@ def run_all(
     print(f"[runner] Total before dedup: {len(all_jobs)}")
     unique_jobs = deduplicate(all_jobs)
     print(f"[runner] Total after dedup: {len(unique_jobs)}")
+
+    if hww:
+        from board_aggregator.hww import HWWIndex, enrich
+
+        hww_index = HWWIndex.load()
+        matched = enrich(unique_jobs, hww_index)
+        print(f"[runner] HWW signal: {matched}/{len(unique_jobs)} postings matched hiring-without-whiteboards")
+
+    if hww_only:
+        before_restrict = len(unique_jobs)
+        unique_jobs = [job for job in unique_jobs if job.hww_listed]
+        print(f"[runner] HWW-only filter: {len(unique_jobs)}/{before_restrict} postings kept")
 
     # Write-once: a fresh RUN_DIR per run means these must not exist yet.
     # If they do, a second scout ran in the same dir (T1-4) — fail loudly

@@ -39,6 +39,10 @@ class JobPosting(BaseModel):
     job_type: str | None = None
     description: str | None = None
     application_deadline: str | None = None
+    # Community-sourced lead, not a verified fact (see board_aggregator.hww):
+    # a company practices real-work interviews per poteto/hiring-without-whiteboards.
+    hww_listed: bool = False
+    hww_process: str | None = None
 
     @field_validator("title", "company", mode="before")
     @classmethod
