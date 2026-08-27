@@ -87,8 +87,17 @@ def load_board_filter(portals_path):
     default=True,
     help="Enrich postings with the hiring-without-whiteboards signal. Default: enabled.",
 )
-def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers, hww):
+@click.option(
+    "--hww-only",
+    is_flag=True,
+    default=False,
+    help="Keep only postings from companies on the hiring-without-whiteboards list.",
+)
+def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrapers, hww, hww_only):
     """dossier Scraper -- Multi-board job scraper for the dossier pipeline."""
+    if hww_only and not hww:
+        raise click.UsageError("--hww-only requires --hww (cannot combine with --no-hww)")
+
     # Import here to trigger registration via module imports
     import board_aggregator.scrapers.jobspy_boards  # noqa: F401
     import board_aggregator.scrapers.himalayas  # noqa: F401
@@ -161,6 +170,7 @@ def main(query, output_dir, scraper, remote_only, hours_old, portals, list_scrap
             portals_path=portals,
             hours_old=hours_old,
             hww=hww,
+            hww_only=hww_only,
         )
     except FileExistsError as exc:
         # Write-once guard tripped (a second run into the same dir). Surface the

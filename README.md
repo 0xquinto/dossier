@@ -72,6 +72,8 @@ Every posting is checked against [poteto/hiring-without-whiteboards](https://git
 
 The list is cached at `~/.cache/board-aggregator/hww-readme.md` and refetched after 7 days; pass `--no-hww` to skip the lookup entirely (no network call, no cache write).
 
+Pass `--hww-only` to keep only postings whose company matched the list, dropping every other posting from the run's output. It requires `--hww` (the default) and errors if combined with `--no-hww`. **Coverage caveat:** `--hww-only` filters what the 13 boards + portal scanner already returned — it does not scrape the listed companies' own careers pages, so an HWW company that never posts on those boards will not appear even with the filter on.
+
 **Provenance caveat:** the list is community-sourced and not independently verified by dossier. `hww_listed` is a lead worth weighing, not a verified claim about a company's actual interview process — treat `hww_process` as a note to confirm, not a guarantee.
 
 ## Architecture

@@ -1,7 +1,9 @@
+import json
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 import responses
 from click.testing import CliRunner
 
@@ -237,6 +239,20 @@ def _one_scraper():
     return mock_scraper
 
 
+def _mixed_scraper():
+    mock_scraper = MagicMock()
+    mock_scraper.name = "test_board"
+    mock_scraper.scrape.return_value = [_job("Zapier"), _job("Not Listed")]
+    return mock_scraper
+
+
+def _unmatched_scraper():
+    mock_scraper = MagicMock()
+    mock_scraper.name = "test_board"
+    mock_scraper.scrape.return_value = [_job("Definitely Not Listed Inc")]
+    return mock_scraper
+
+
 def test_run_all_enriches_by_default(tmp_path):
     with patch("board_aggregator.runner.get_all_scrapers", return_value=[_one_scraper()]), \
             patch("board_aggregator.hww.HWWIndex.load", return_value=HWWIndex.parse(FIXTURE_TEXT)):
@@ -252,6 +268,34 @@ def test_run_all_skips_hww_when_disabled(tmp_path):
 
     mock_load.assert_not_called()
     assert jobs[0].hww_listed is False
+
+
+# --- runner.run_all hww_only restrict mode ---------------------------------
+
+
+def test_run_all_hww_only_keeps_matches_and_prints_count(tmp_path, capsys):
+    with patch("board_aggregator.runner.get_all_scrapers", return_value=[_mixed_scraper()]), \
+            patch("board_aggregator.hww.HWWIndex.load", return_value=HWWIndex.parse(FIXTURE_TEXT)):
+        jobs = run_all(["query"], output_dir=tmp_path, hww_only=True)
+
+    assert [job.company for job in jobs] == ["Zapier"]
+    assert "[runner] HWW-only filter: 1/2 postings kept" in capsys.readouterr().out
+
+
+def test_run_all_hww_only_requires_hww(tmp_path):
+    with pytest.raises(ValueError):
+        run_all(["query"], output_dir=tmp_path, hww=False, hww_only=True)
+
+
+def test_run_all_hww_only_empty_match_writes_valid_outputs(tmp_path):
+    with patch("board_aggregator.runner.get_all_scrapers", return_value=[_unmatched_scraper()]), \
+            patch("board_aggregator.hww.HWWIndex.load", return_value=HWWIndex.parse(FIXTURE_TEXT)):
+        jobs = run_all(["query"], output_dir=tmp_path, hww_only=True)
+
+    assert jobs == []
+    assert json.loads((tmp_path / "all-postings-index.json").read_text()) == []
+    assert (tmp_path / "all-postings.csv").exists()
+    assert (tmp_path / "all-postings.md").exists()
 
 
 # --- cli --no-hww wiring ---------------------------------------------------
@@ -271,3 +315,29 @@ def test_cli_hww_enabled_by_default():
 
     assert result.exit_code == 0, result.output
     assert mock_run_all.call_args.kwargs["hww"] is True
+
+
+# --- cli --hww-only wiring ---------------------------------------------------
+
+
+def test_cli_hww_only_flag_wires_to_run_all():
+    with patch("board_aggregator.cli.run_all", return_value=[]) as mock_run_all:
+        result = CliRunner().invoke(cli_main, ["--hww-only"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_run_all.call_args.kwargs["hww_only"] is True
+
+
+def test_cli_hww_only_disabled_by_default():
+    with patch("board_aggregator.cli.run_all", return_value=[]) as mock_run_all:
+        result = CliRunner().invoke(cli_main, [])
+
+    assert result.exit_code == 0, result.output
+    assert mock_run_all.call_args.kwargs["hww_only"] is False
+
+
+def test_cli_hww_only_conflicts_with_no_hww():
+    result = CliRunner().invoke(cli_main, ["--hww-only", "--no-hww"])
+
+    assert result.exit_code != 0
+    assert "--hww-only requires --hww" in result.output
