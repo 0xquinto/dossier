@@ -207,7 +207,7 @@ graph TB
 | `--remote-only/--include-onsite` | remote-only | Job location filter |
 | `--list-scrapers` | — | Print registry keys and exit |
 
-**Critical gotcha:** All 10 scraper modules are imported **inside** `main()` (not at module top-level). This is intentional — it triggers `@register` only on CLI invocation. Forget to add an import here and the scraper silently never runs.
+**Critical gotcha:** All 10 scraper modules are imported **inside** `main()` (not at module top-level). This is intentional. It triggers `@register` only on CLI invocation. Forget to add an import here and the scraper silently never runs.
 
 ---
 
@@ -217,13 +217,13 @@ graph TB
 **Exports:** `run_all()`, `collect_from_boards()`, `deduplicate()`, `_richness()`
 
 **Data flow:**
-1. `collect_from_boards()` — iterates `get_all_scrapers()`, calls `scraper.scrape()`, swallows per-scraper exceptions with a `print()`.
-2. If `portals_path` provided — calls `portal_scanner.scan_portals()` (which also rewrites `portals.yml`), then reads `portals.yml` again to get `title_filter`, calls `filter_by_title()`.
+1. `collect_from_boards()`: iterates `get_all_scrapers()`, calls `scraper.scrape()`, swallows per-scraper exceptions with a `print()`.
+2. If `portals_path` is provided, it calls `portal_scanner.scan_portals()` (which also rewrites `portals.yml`), then reads `portals.yml` again to get `title_filter`, calls `filter_by_title()`.
 3. Dedup + write CSV + Markdown.
 
 **Dedup key:** `(title.lower(), company.lower())`. On collision, keeps the posting with higher richness: `salary_min` (+3), `salary_max` (+3), `description` (+2), `date_posted` (+1), `job_type` (+1).
 
-**Gotcha:** `portals.yml` is read twice — once inside `scan_portals()` (which also writes it back) and once again by `run_all()` to read `title_filter`. The second read sees the already-updated file.
+**Gotcha:** `portals.yml` is read twice: once inside `scan_portals()` (which also writes it back) and once again by `run_all()` to read `title_filter`. The second read sees the already-updated file.
 
 ---
 
@@ -247,8 +247,8 @@ graph TB
 
 **Gotchas:**
 - `scan_portals()` rewrites the entire YAML file via `yaml.dump()`. YAML comments in `portals.yml` are **destroyed on first write**.
-- Greenhouse `is_remote` detection depends on a `metadata` field named `"Location Type"` — companies that don't configure this metadata always yield `is_remote=False`.
-- `_strip_html()` uses a simple regex, not a parser — malformed HTML may leave artifacts.
+- Greenhouse `is_remote` detection depends on a `metadata` field named `"Location Type"`. Companies that don't configure this metadata always yield `is_remote=False`.
+- `_strip_html()` uses a simple regex, not a parser. Malformed HTML may leave artifacts.
 
 ---
 
@@ -272,7 +272,7 @@ graph TB
 
 **Markdown:** Includes per-source count breakdown (Counter), salary formatted as `$120,000 - $180,000 USD (yearly)`, description truncated to **300 chars**.
 
-**Gotcha:** `path.write_text()` uses platform default encoding — could break on non-UTF-8 systems with exotic characters from crypto boards.
+**Gotcha:** `path.write_text()` uses platform default encoding. It could break on non-UTF-8 systems with exotic characters from crypto boards.
 
 ---
 
@@ -301,11 +301,11 @@ graph TB
 | Agent | Phase / Role | Model | Key Tools | Blocking? |
 |-------|-------------|-------|-----------|-----------|
 | `lead-0` | Orchestrator | Opus | Agent spawning, Read, Write, Glob, Grep | Main thread |
-| `scout-1` | Phase 1 — Scrape | Sonnet | Bash (CLI), Read, Write, WebFetch, Exa fetch | Foreground |
-| `ranker-7` | Phase 2 — Rank | Sonnet | Read, Write, Grep, Glob | Foreground |
-| `recon-3` | Phase 3 — Contacts | Sonnet | Read, Write, WebSearch, Exa advanced search | Background (one per company) |
-| `scripter-11` | Phase 4 (optional) — Video scripts | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
-| `composer-4` | Phase 4 (optional) — Pitch materials | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
+| `scout-1` | Phase 1: Scrape | Sonnet | Bash (CLI), Read, Write, WebFetch, Exa fetch | Foreground |
+| `ranker-7` | Phase 2: Rank | Sonnet | Read, Write, Grep, Glob | Foreground |
+| `recon-3` | Phase 3: Contacts | Sonnet | Read, Write, WebSearch, Exa advanced search | Background (one per company) |
+| `scripter-11` | Phase 4 (optional): Video scripts | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
+| `composer-4` | Phase 4 (optional): Pitch materials | Opus | Read, Write, Glob | Foreground, sequential per company; skipped by default, offered after summary |
 | `discoverer-6` | Portal discovery | Sonnet | Read, Write, Exa company research, WebFetch | Auto-dispatched by lead-0 (foreground) when portals.yml is missing/empty; also runs standalone |
 | `primer-8` | Onboarding | Opus | Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch | Spawned by lead-0 on readiness check failure |
 | `applier-2` | Application forms | Sonnet | Read, Write, Glob, Grep | On-demand, human-in-the-loop |
@@ -313,7 +313,7 @@ graph TB
 | `pdf-9` | ATS PDF generation | Sonnet | Read, Write, Glob, Grep, Bash | On-demand; self-renders PDF via `node scripts/generate-pdf.mjs`; keyword injection + bullet reordering; enforces Work-Experience-vs-Projects section boundaries |
 | `filler-10` | ATS submitter | Opus | Read, Write, Glob, Grep, Bash | On-demand, Lever/Ashby API; delegates others to applier-2 |
 
-**`discoverer-6` role:** Populates `portals.yml` with companies matching the user's ICP. lead-0's Portal Bootstrap step auto-dispatches it (foreground) when `portals.yml` is missing or has no `active: true` companies; it also runs standalone. If `portals.yml` is missing it first scaffolds one (`config` + `title_filter` from `templates/portals.example.yml`, empty `companies`). Searches Exa by vertical, detects ATS platform from careers URL patterns, scores ICP fit 1-10, appends entries scoring ≥ `config.icp_min_score`. Never modifies `last_scanned`, `last_had_openings`, or `active` — those are scout-1's fields.
+**`discoverer-6` role:** Populates `portals.yml` with companies matching the user's ICP. lead-0's Portal Bootstrap step auto-dispatches it (foreground) when `portals.yml` is missing or has no `active: true` companies; it also runs standalone. If `portals.yml` is missing it first scaffolds one (`config` + `title_filter` from `templates/portals.example.yml`, empty `companies`). Searches Exa by vertical, detects ATS platform from careers URL patterns, scores ICP fit 1-10, appends entries scoring ≥ `config.icp_min_score`. Never modifies `last_scanned`, `last_had_openings`, or `active`. Those are scout-1's fields.
 
 **`primer-8` role:** Onboarding agent spawned by lead-0 when readiness check fails. Handles prerequisites (Homebrew, Python 3.12+, git), Exa MCP configuration, project permissions, and profile building (skills-inventory.md + resume.md). Guides user through setup steps and validates the installation before returning control to lead-0.
 
@@ -401,7 +401,7 @@ sequenceDiagram
     end
 ```
 
-**Phase 4 is optional and runs last.** It is skipped by default; lead-0 offers it to the user after the pipeline summary. When the user opts in, scripter-11 → composer-4 run foreground, sequentially per company. Phase 3 (contacts) is the only background phase — one subagent per company in parallel.
+**Phase 4 is optional and runs last.** It is skipped by default; lead-0 offers it to the user after the pipeline summary. When the user opts in, scripter-11 → composer-4 run foreground, sequentially per company. Phase 3 (contacts) is the only background phase, one subagent per company in parallel.
 
 ---
 
@@ -413,9 +413,9 @@ sequenceDiagram
 
 Three mocking patterns used throughout:
 
-1. **`responses` library** — HTTP interception for scrapers making direct HTTP calls. `@responses.activate` + `responses.add(...)` registers fake responses; no real network traffic.
-2. **`feedparser` pre-parse** — For RSS scrapers: real `feedparser.parse()` is called at module import time on an inline RSS string (so real parsing is tested), then `feedparser.parse` inside the scraper is mocked to return that pre-parsed result.
-3. **`unittest.mock.patch`** — For scrapers delegating to third-party libraries (`jobspy.scrape_jobs`). Returns a Pandas DataFrame or pre-parsed object.
+1. **`responses` library**: HTTP interception for scrapers making direct HTTP calls. `@responses.activate` + `responses.add(...)` registers fake responses; no real network traffic.
+2. **`feedparser` pre-parse**: for RSS scrapers, real `feedparser.parse()` is called at module import time on an inline RSS string (so real parsing is tested); then `feedparser.parse` inside the scraper is mocked to return that pre-parsed result.
+3. **`unittest.mock.patch`**: for scrapers delegating to third-party libraries (`jobspy.scrape_jobs`). Returns a Pandas DataFrame or pre-parsed object.
 
 `tmp_path` (built-in pytest fixture) is used in `test_portal_scanner.py` and `test_wizard.py` for ephemeral YAML/env files.
 
@@ -470,13 +470,13 @@ Onboarding script; runs **before** the venv exists.
 | 4 | `setup_exa_credential()` | Prompts for an Exa API key; persists it as an `export EXA_API_KEY` in the user's shell profile; skips if `EXA_API_KEY` is already set |
 | 5 | `validate_install()` | Imports `board_aggregator.__version__` via subprocess; runs `--list-scrapers` and counts output lines |
 
-Copy functions are **idempotent** — skips if destination exists. Re-running the wizard is safe.
+Copy functions are **idempotent**: they skip if the destination exists. Re-running the wizard is safe.
 
 ### GitHub Workflows
 
-**test.yml** — Triggers on push/PR to `main`. Matrix: Python 3.12 and 3.13 on `ubuntu-latest`. Installs `.[dev]`, runs `pytest -v`. No coverage upload.
+**test.yml**: triggers on push/PR to `main`. Matrix: Python 3.12 and 3.13 on `ubuntu-latest`. Installs `.[dev]`, runs `pytest -v`. No coverage upload.
 
-**publish.yml** — Triggers on GitHub Release (type: `published`). Builds with `python -m build`; publishes via `pypa/gh-action-pypi-publish` using OIDC trusted publishing (no PyPI token secret needed — configure the trusted publisher on PyPI and enable the `pypi` environment in repo settings).
+**publish.yml**: triggers on GitHub Release (type: `published`). Builds with `python -m build`; publishes via `pypa/gh-action-pypi-publish` using OIDC trusted publishing (no PyPI token secret needed; configure the trusted publisher on PyPI and enable the `pypi` environment in repo settings).
 
 ---
 
@@ -486,7 +486,7 @@ Copy functions are **idempotent** — skips if destination exists. Re-running th
 - **Subagent output contract:** Verbose data goes to files; subagents return only 1-2 sentence summaries to lead-0. This survives context compaction because it's in CLAUDE.md.
 - **Run versioning:** All output under `research/runs/$RUN_ID/`; `RUN_DIR` is passed dynamically to every subagent by lead-0. Never hardcode it in agent definitions.
 - **Registry pattern:** Scrapers self-register via `@register`; must be explicitly imported in `cli.py:main()` to trigger registration.
-- **Dedup key:** `(title.lower(), company.lower())` — richer version wins on collision.
+- **Dedup key:** `(title.lower(), company.lower())`. The richer version wins on collision.
 - **Test strategy:** `responses` library for HTTP mocks; feedparser pre-parse trick for RSS; `unittest.mock.patch` for library wrappers. Real HTML/JSON fixtures for scrapers with complex parsing.
 - **Portal state ownership:** `last_scanned`, `last_had_openings`, `active` are owned by `scan_portals()` (scout-1). `discoverer-6` only appends new entries; never mutates existing ones.
 
@@ -499,11 +499,11 @@ Copy functions are **idempotent** — skips if destination exists. Re-running th
 - **`portals.yml` comments are destroyed on first scan.** `scan_portals()` uses `yaml.dump()` which strips all YAML comments. Keep a separate reference copy if comments matter.
 - **`is_remote` defaults to True.** Scrapers that can't detect remote status inflate remote counts.
 - **Greenhouse has no salary data.** The `/v1/boards/{slug}/jobs` endpoint does not return compensation.
-- **Greenhouse `is_remote` requires custom metadata.** Detection depends on a metadata field named `"Location Type"` — companies that don't configure this always yield `is_remote=False`.
+- **Greenhouse `is_remote` requires custom metadata.** Detection depends on a metadata field named `"Location Type"`. Companies that don't configure this always yield `is_remote=False`.
 - **HTML scrapers are fragile.** `web3career`, `cryptocurrencyjobs`, and `cryptojobslist` parse specific DOM structures that can break without notice.
 - **CLI default output path is non-versioned.** CLI defaults to `research/phase-1-scrape`; the pipeline always overrides with `-o $RUN_DIR/phase-1-scrape`.
 - **`settings.local.json` has a dead `mcp__jobspy__*` entry.** Legacy from when jobspy was an MCP server. Current design runs it as a subprocess via the CLI.
-- **Phase 4 is optional and deferred.** It is skipped by default and offered after the pipeline summary; only Phase 3 runs in the background. When opted into, Phase 4 runs foreground, sequentially per company — never simultaneously with Phase 3.
+- **Phase 4 is optional and deferred.** It is skipped by default and offered after the pipeline summary; only Phase 3 runs in the background. When opted into, Phase 4 runs foreground, sequentially per company, never simultaneously with Phase 3.
 - **Markdown description truncated twice.** Scrapers truncate to 500 chars; `output.py` truncates again to 300 chars.
 - **`pdf-9` requires Node.js ≥20 + Playwright.** It self-renders the PDF by shelling out to `node scripts/generate-pdf.mjs`. The dependency is enforced by `lead-0`'s readiness check, not by `setup_wizard.py`.
 - **`pdf-9` enforces section boundaries.** Work Experience and Projects must never cross-contaminate (e.g., side projects must not appear under Work Experience). Non-obvious constraint embedded in the agent definition.
@@ -548,8 +548,8 @@ Since 2026-04-08:
 
 - **Repo renamed** `agent-job-research` → `dossier` (GitHub URLs, package.json, pyproject.toml, Go module path, all docs)
 - **`HireBoost` legacy alias removed** from pyproject.toml description and `board_aggregator/cli.py`
-- **`letter-5`** added — ATS cover letter generation (Opus, on-demand)
-- **`filler-10`** added — hybrid ATS submitter (Lever/Ashby API + Greenhouse/Workday browser automation, human-in-the-loop)
+- **`letter-5`** added: ATS cover letter generation (Opus, on-demand)
+- **`filler-10`** added: hybrid ATS submitter (Lever/Ashby API + Greenhouse/Workday browser automation, human-in-the-loop)
 - **`pdf-9`** switched from delegating to user → self-rendering PDF via `node scripts/generate-pdf.mjs`; added section-boundary rules
 - **`lead-0` readiness check** now validates Node.js ≥20 + Playwright (required for `pdf-9`)
 
