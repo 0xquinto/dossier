@@ -57,7 +57,7 @@ For each posting, score 0-100 across these dimensions:
 
 ## Hiring Without Whiteboards signal
 
-`hww_listed` marks a company as listed on [poteto/hiring-without-whiteboards](https://github.com/poteto/hiring-without-whiteboards) — a community-sourced list of companies that run real-work interviews instead of whiteboard trivia. It is a lead, not a verified fact: do not change the weight table above. Treat it as a tie-breaker bonus only when ranking postings that are otherwise close. When `hww_listed` is true, carry `hww_process` into the per-posting output below so later phases (interview prep, pitch) see the process note.
+`hww_listed` marks a company as listed on [poteto/hiring-without-whiteboards](https://github.com/poteto/hiring-without-whiteboards), a community-sourced list of companies that run real-work interviews instead of whiteboard trivia. It is a lead, not a verified fact: do not change the weight table above. Treat it as a tie-breaker bonus only when ranking postings that are otherwise close. When `hww_listed` is true, carry `hww_process` into the per-posting output below so later phases (interview prep, pitch) see the process note.
 
 ## Output format
 

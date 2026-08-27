@@ -62,9 +62,9 @@ validating candidates, not finding them:
 
 1. Run `board-aggregator --hww-pool` (remote-only by default; add
    `--include-onsite` when the user's profile allows on-site roles) instead
-   of the `dossier-research discover` Exa run in Step 3 above. This prints the pool as JSON — name, url,
-   location, process, remote — and does not touch the network beyond the
-   list's own 7-day cache.
+   of the `dossier-research discover` Exa run in Step 3 above. This prints
+   the pool as JSON (name, url, location, process, remote) and does not
+   touch the network beyond the list's own 7-day cache.
 2. Dedup the pool against existing portals.yml domains exactly as in Step
    2/3.
 3. Prefilter the deduped pool against skills-inventory.md using your own ICP
@@ -75,10 +75,10 @@ validating candidates, not finding them:
    ATS-detection treatment in one run.
 5. For each written entry, `icp_fit_reasoning` notes that the company was
    seeded from hiring-without-whiteboards, and `source` is `"hww-seed"`
-   (not `"exa-discovery"` — no Exa discovery run produced it).
+   (not `"exa-discovery"`; no Exa discovery run produced it).
 
-Everything else — validation verdicts, never writing an unvalidated URL — is
-unchanged from the rules below.
+Everything else, validation verdicts and never writing an unvalidated URL
+included, is unchanged from the rules below.
 
 ## Step 4: Detect ATS and add to portals
 

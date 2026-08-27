@@ -72,11 +72,11 @@ Every posting is checked against [poteto/hiring-without-whiteboards](https://git
 
 The list is cached at `~/.cache/board-aggregator/hww-readme.md` and refetched after 7 days; pass `--no-hww` to skip the lookup entirely (no network call, no cache write).
 
-Pass `--hww-only` to keep only postings whose company matched the list, dropping every other posting from the run's output. It requires `--hww` (the default) and errors if combined with `--no-hww`. **Coverage caveat:** `--hww-only` filters what the 13 boards + portal scanner already returned — it does not scrape the listed companies' own careers pages, so an HWW company that never posts on those boards will not appear even with the filter on.
+Pass `--hww-only` to keep only postings whose company matched the list, dropping every other posting from the run's output. It requires `--hww` (the default) and errors if combined with `--no-hww`. **Coverage caveat.** `--hww-only` filters what the 13 boards + portal scanner already returned; it does not scrape the listed companies' own careers pages, so an HWW company that never posts on those boards will not appear even with the filter on.
 
-**Provenance caveat:** the list is community-sourced and not independently verified by dossier. `hww_listed` is a lead worth weighing, not a verified claim about a company's actual interview process — treat `hww_process` as a note to confirm, not a guarantee.
+**Provenance caveat.** The list is community-sourced and not independently verified by dossier. `hww_listed` is a lead worth weighing, not a verified claim about a company's actual interview process. Treat `hww_process` as a note to confirm, not a guarantee.
 
-**Seeded discovery:** `--hww-pool` exports the list as JSON (name, url, location, process, remote) instead of scraping, honoring `--remote-only`/`--include-onsite` the same way the scrape path does. `discoverer-6` can use that pool as its candidate list instead of an Exa name-discovery run, so Exa spend goes only toward validating each candidate's ATS board, not finding names — see its "HWW-seeded mode" in `.claude/agents/discoverer-6.md`. The budget is the same `config.max_discovery_calls` cap either way.
+**Seeded discovery.** `--hww-pool` exports the list as JSON (name, url, location, process, remote) instead of scraping, honoring `--remote-only`/`--include-onsite` the same way the scrape path does. `discoverer-6` can use that pool as its candidate list instead of an Exa name-discovery run, so Exa spend goes only toward validating each candidate's ATS board, not finding names; see its "HWW-seeded mode" in `.claude/agents/discoverer-6.md`. The budget is the same `config.max_discovery_calls` cap either way.
 
 ## Architecture
 
