@@ -76,6 +76,8 @@ Pass `--hww-only` to keep only postings whose company matched the list, dropping
 
 **Provenance caveat:** the list is community-sourced and not independently verified by dossier. `hww_listed` is a lead worth weighing, not a verified claim about a company's actual interview process — treat `hww_process` as a note to confirm, not a guarantee.
 
+**Seeded discovery:** `--hww-pool` exports the list as JSON (name, url, location, process, remote) instead of scraping, honoring `--remote-only`/`--include-onsite` the same way the scrape path does. `discoverer-6` can use that pool as its candidate list instead of an Exa name-discovery run, so Exa spend goes only toward validating each candidate's ATS board, not finding names — see its "HWW-seeded mode" in `.claude/agents/discoverer-6.md`. The budget is the same `config.max_discovery_calls` cap either way.
+
 ## Architecture
 
 ```mermaid

@@ -115,7 +115,7 @@ ATS portal scanning (Phase 1 Stage 2) only contributes results when `portals.yml
     Exa, detect each company's ATS, and append them to portals.yml with
     active: true. Write only to portals.yml.
     ```
-    `discoverer-6` reads `skills-inventory.md` and writes only to `portals.yml` (it does NOT use RUN_DIR). Wait for it to return, then re-read `portals.yml` so the newly discovered companies appear in the Phase 1 Preflight preview.
+    `discoverer-6` reads `skills-inventory.md` and writes only to `portals.yml` (it does NOT use RUN_DIR). Wait for it to return, then re-read `portals.yml` so the newly discovered companies appear in the Phase 1 Preflight preview. If the user asks to discover or restrict to hiring-without-whiteboards companies instead, request discoverer-6's HWW-seeded mode (its own `.claude/agents/discoverer-6.md` section) in the dispatch prompt.
   - **skip** → continue; scout-1 will omit `--portals` and scrape job boards only. (To hand-pick companies instead, copy `templates/portals.example.yml` → `portals.yml` and edit it before re-running.)
 
 ## Phase 1 Preflight
