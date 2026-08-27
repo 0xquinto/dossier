@@ -8,7 +8,7 @@ import responses
 from click.testing import CliRunner
 
 from board_aggregator.cli import main as cli_main
-from board_aggregator.hww import README_URL, HWWIndex, enrich
+from board_aggregator.hww import README_URL, HWWCompany, HWWIndex, enrich
 from board_aggregator.models import JobPosting
 from board_aggregator.runner import run_all
 
@@ -85,6 +85,24 @@ def test_match_ignores_punctuation_and_spacing():
 def test_match_unknown_company_returns_none():
     index = HWWIndex.parse(FIXTURE_TEXT)
     assert index.match("Definitely Not Listed Inc") is None
+
+
+# --- remote derivation ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "location, expected",
+    [
+        ("Remote", True),
+        ("San Francisco, CA / Remote", True),
+        ("Remote/ Singapore, Singapore", True),
+        ("San Francisco, CA", False),
+        (None, None),
+    ],
+)
+def test_remote_derivation(location, expected):
+    company = HWWCompany(name="Test", url="https://example.com", location=location)
+    assert company.remote is expected
 
 
 # --- cache TTL ---------------------------------------------------------
@@ -341,3 +359,68 @@ def test_cli_hww_only_conflicts_with_no_hww():
 
     assert result.exit_code != 0
     assert "--hww-only requires --hww" in result.output
+
+
+# --- cli --hww-pool ----------------------------------------------------
+# --hww-pool is a short-circuit flag like --list-scrapers: it exits before
+# run_all is ever reached, so every test here asserts run_all was not called
+# rather than inspecting an output directory.
+
+
+def _hww_pool(args):
+    with patch("board_aggregator.hww.HWWIndex.load", return_value=HWWIndex.parse(FIXTURE_TEXT)), \
+            patch("board_aggregator.cli.run_all") as mock_run_all:
+        result = CliRunner().invoke(cli_main, args)
+    return result, mock_run_all
+
+
+def test_cli_hww_pool_prints_full_pool_shape_and_count():
+    result, mock_run_all = _hww_pool(["--hww-pool", "--include-onsite"])
+
+    assert result.exit_code == 0, result.output
+    mock_run_all.assert_not_called()
+    pool = json.loads(result.output)
+    assert len(pool) == 6
+    assert {c["name"] for c in pool} == {
+        "1000.software", "Aalyria", "Abstract", "Zephyrio", "Zenefits (UI Team)", "Zapier",
+    }
+
+    zapier = next(c for c in pool if c["name"] == "Zapier")
+    assert set(zapier) == {"name", "url", "location", "process", "remote"}
+    assert zapier["url"] == "https://zapier.com/jobs/"
+    assert zapier["location"] == "Remote"
+    assert zapier["remote"] is True
+
+    zephyrio = next(c for c in pool if c["name"] == "Zephyrio")
+    assert zephyrio["location"] is None
+    assert zephyrio["remote"] is None
+
+    abstract = next(c for c in pool if c["name"] == "Abstract")
+    assert abstract["remote"] is False
+
+
+def test_cli_hww_pool_remote_only_filters_to_remote_true():
+    result, mock_run_all = _hww_pool(["--hww-pool", "--remote-only"])
+
+    assert result.exit_code == 0, result.output
+    mock_run_all.assert_not_called()
+    pool = json.loads(result.output)
+    assert {c["name"] for c in pool} == {"1000.software", "Aalyria", "Zapier"}
+    assert all(c["remote"] is True for c in pool)
+
+
+def test_cli_hww_pool_remote_only_is_the_default():
+    # --remote-only/--include-onsite defaults to remote-only for the scrape
+    # path too; --hww-pool inherits that default rather than its own.
+    result, mock_run_all = _hww_pool(["--hww-pool"])
+
+    assert result.exit_code == 0, result.output
+    mock_run_all.assert_not_called()
+    assert len(json.loads(result.output)) == 3
+
+
+def test_cli_hww_pool_conflicts_with_no_hww():
+    result = CliRunner().invoke(cli_main, ["--hww-pool", "--no-hww"])
+
+    assert result.exit_code != 0
+    assert "--hww-pool requires --hww" in result.output

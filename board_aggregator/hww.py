@@ -37,6 +37,16 @@ class HWWCompany(BaseModel):
     location: str | None = None
     process: str | None = None
 
+    @property
+    def remote(self) -> bool | None:
+        """Derived from `location`: True if it mentions remote (case-insensitive
+        substring, so "Remote/ Singapore" and "SF / Remote" both count), False
+        if `location` is present without the word, None if `location` is absent
+        (the README simply didn't say)."""
+        if self.location is None:
+            return None
+        return "remote" in self.location.casefold()
+
 
 class HWWIndex:
     """Company list keyed by normalized name for O(1) lookup."""
