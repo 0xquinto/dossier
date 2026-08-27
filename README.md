@@ -2,9 +2,9 @@
 
 Agent pipeline that scrapes 13 job boards plus your ICP companies' ATS portals (Greenhouse / Ashby / Lever), scores postings against your skills, finds hiring managers, and drafts personalized pitches. Anti-mass-apply.
 
-## Quick Start
+## Quick start
 
-> **Requires the [Claude Code](https://code.claude.com) terminal CLI.** The pipeline is driven by the `lead-0` agent, which can only be launched as the primary agent from the CLI (`claude --agent lead-0`). It cannot be started from the Claude Desktop app or claude.ai/code — see [Claude Desktop & claude.ai](#claude-desktop--claudeai) below.
+> **Requires the [Claude Code](https://code.claude.com) terminal CLI.** The pipeline is driven by the `lead-0` agent, which can only be launched as the primary agent from the CLI (`claude --agent lead-0`). It cannot be started from the Claude Desktop app or claude.ai/code. See [Claude Desktop & claude.ai](#claude-desktop--claudeai) below.
 
 ```bash
 git clone https://github.com/0xQuinto/dossier.git
@@ -19,20 +19,20 @@ That's it. On first run, `lead-0` detects missing setup and walks you through ev
 - Configuring the `EXA_API_KEY` credential for contact research
 - Building your skills inventory and resume from your existing materials (CV, portfolio, GitHub, LinkedIn)
 
-**Manual alternative:** `python3 setup_wizard.py` handles venv + deps + the `EXA_API_KEY` credential (exported to your shell profile) without the profile builder. (On Windows, if bare `python` opens the Microsoft Store, use the real interpreter — see [Development](#development).)
+**Manual alternative.** `python3 setup_wizard.py` handles venv + deps + the `EXA_API_KEY` credential (exported to your shell profile) without the profile builder. (On Windows, if bare `python` opens the Microsoft Store, use the real interpreter; see [Development](#development).)
 
 ## Claude Desktop & claude.ai
 
-**This pipeline runs only in the Claude Code terminal CLI.** Both the Desktop app and claude.ai/code load this repo's `.claude/` config (CLAUDE.md, settings, MCP servers, skills, and the agent files themselves), but **neither lets you launch a custom agent as the main thread** — there's no `--agent` equivalent or agent picker. Because `lead-0` orchestrates by spawning subagents (`scout-1`, `ranker-7`, …) and a custom agent can only be made the main thread via the CLI, the orchestrator can't be started on those surfaces. The same applies to the on-demand agents (`letter-5`, `pdf-9`, `applier-2`, `filler-10`) — they're custom agents too.
+**This pipeline runs only in the Claude Code terminal CLI.** Both the Desktop app and claude.ai/code load this repo's `.claude/` config (CLAUDE.md, settings, MCP servers, skills, and the agent files themselves), but **neither lets you launch a custom agent as the main thread**. There is no `--agent` equivalent or agent picker. Because `lead-0` orchestrates by spawning subagents (`scout-1`, `ranker-7`, …) and a custom agent can only be made the main thread via the CLI, the orchestrator can't be started on those surfaces. The same applies to the on-demand agents (`letter-5`, `pdf-9`, `applier-2`, `filler-10`); they're custom agents too.
 
 | Surface | Reads `.claude/` config | Launch `lead-0` / on-demand agents | Run the pipeline |
 |---|:---:|:---:|:---:|
 | **Terminal CLI** | ✅ | ✅ `claude --agent <name>` | ✅ |
-| **Claude Desktop** (local) | ✅ | ❌ no agent launcher | ❌ — use the CLI |
-| **claude.ai/code** (cloud) | ✅ (cloned in) | ❌ no agent launcher | ❌ — use the CLI |
+| **Claude Desktop** (local) | ✅ | ❌ no agent launcher | ❌ use the CLI |
+| **claude.ai/code** (cloud) | ✅ (cloned in) | ❌ no agent launcher | ❌ use the CLI |
 
-- **Claude Desktop** is a full local Claude Code engine (runs bash, edits files, shares config with the CLI), but it has no UI to make `lead-0` the primary agent — run the pipeline from a terminal instead. The raw scraper (`board-aggregator`) still works in any shell.
-- **claude.ai/code** cloud sessions can be started from the CLI with `claude --remote "<task>"` (push your commits first — it clones from GitHub), but `--remote` cannot be combined with `--agent`, so it can't drive `lead-0`. Cloud sessions are fine for other repo tasks, just not this pipeline.
+- **Claude Desktop** is a full local Claude Code engine (runs bash, edits files, shares config with the CLI), but it has no UI to make `lead-0` the primary agent. Run the pipeline from a terminal instead. The raw scraper (`board-aggregator`) still works in any shell.
+- **claude.ai/code** cloud sessions can be started from the CLI with `claude --remote "<task>"` (push your commits first, since it clones from GitHub), but `--remote` cannot be combined with `--agent`, so it can't drive `lead-0`. Cloud sessions are fine for other repo tasks, just not this pipeline.
 
 Docs: [sub-agents (CLI-only)](https://code.claude.com/docs/en/sub-agents) · [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web) · [Desktop](https://code.claude.com/docs/en/desktop)
 
@@ -45,26 +45,26 @@ Phase 3 — Research     recon-3 finds hiring managers via Exa (parallel per com
 Phase 4 — Pitch        (optional) scripter-11 drafts the video pitch, then composer-4 produces DM drafts + STAR+R stories — skipped by default, offered after the other phases finish
 ```
 
-The pipeline orchestrator (`lead-0`) runs phases sequentially. Phase 3 spawns one subagent per company in parallel. **Phase 4 is optional** — skipped by default and offered once the other phases finish.
+The pipeline orchestrator (`lead-0`) runs phases sequentially. Phase 3 spawns one subagent per company in parallel. **Phase 4 is optional**, skipped by default and offered once the other phases finish.
 
 **Two scrape sources, one merged feed:**
-- **Generic boards** — 13 public boards (Indeed, LinkedIn, RemoteOK, Himalayas, HN, crypto/web3 boards, 80,000 Hours, …) — wide net, noisy.
-- **Per-company ATS portals** — direct hits to Greenhouse / Ashby / Lever public APIs for the companies in `portals.yml` — narrow, high-signal. No auth needed. Scout-1 marks portals inactive after 30 days with no openings; `discoverer-6` adds new ones.
+- **Generic boards.** 13 public boards (Indeed, LinkedIn, RemoteOK, Himalayas, HN, crypto/web3 boards, 80,000 Hours, …). Wide net, noisy.
+- **Per-company ATS portals.** Direct hits to Greenhouse / Ashby / Lever public APIs for the companies in `portals.yml`. Narrow, high-signal, no auth needed. Scout-1 marks portals inactive after 30 days with no openings; `discoverer-6` adds new ones.
 
-**Portal discovery:** If `portals.yml` is missing or has no active companies, `lead-0` offers to run `discoverer-6` to auto-discover companies matching your skills-inventory and populate it before Phase 1. You can also run `discoverer-6` standalone anytime to expand the list.
+**Portal discovery.** If `portals.yml` is missing or has no active companies, `lead-0` offers to run `discoverer-6` to auto-discover companies matching your skills-inventory and populate it before Phase 1. You can also run `discoverer-6` standalone anytime to expand the list.
 
 Each run writes to a timestamped directory under `research/runs/`. The most recent run is symlinked at `research/latest/`.
 
 **On-demand agents (outside the pipeline):**
-- `applier-2` — generates copy-paste answers for application forms (human-in-the-loop)
-- `letter-5` — ATS cover letter generation (keyword injection + SOAR proof points)
-- `pdf-9` — tailored ATS PDF CV generation (keyword injection + bullet reordering)
-- `filler-10` — ATS submitter: API submission for Lever/Ashby; other ATSes delegate to applier-2 for manual submission (human-in-the-loop)
+- `applier-2` generates copy-paste answers for application forms (human-in-the-loop)
+- `letter-5` generates ATS cover letters (keyword injection + SOAR proof points)
+- `pdf-9` generates tailored ATS PDF CVs (keyword injection + bullet reordering)
+- `filler-10` submits via API for Lever/Ashby and delegates other ATSes to applier-2 for manual submission (human-in-the-loop)
 
 **Utilities:**
-- `scripts/tracker.py` — application status tracker CLI (add, update, import-run, dedup, show)
-- `dashboard/` — Go TUI for browsing applications (Bubble Tea + Lipgloss)
-- `scripts/generate-pdf.mjs` — Playwright-based ATS PDF renderer
+- `scripts/tracker.py` is the application status tracker CLI (add, update, import-run, dedup, show)
+- `dashboard/` is a Go TUI for browsing applications (Bubble Tea + Lipgloss)
+- `scripts/generate-pdf.mjs` renders the ATS PDF via Playwright
 
 ## Hiring Without Whiteboards signal
 
@@ -149,4 +149,4 @@ python3 -m venv .venv
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
